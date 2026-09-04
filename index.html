@@ -9,11 +9,11 @@
     :root {
       --primary: #4f46e5;
       --primary-hover: #4338ca;
-      --bg: #f3f4f6;
+      --bg: #f8fafc;
       --card-bg: #ffffff;
-      --text-main: #1f2937;
-      --text-sub: #6b7280;
-      --border: #e5e7eb;
+      --text-main: #0f172a;
+      --text-sub: #64748b;
+      --border: #e2e8f0;
       --danger: #ef4444;
       --danger-hover: #dc2626;
     }
@@ -36,14 +36,13 @@
 
     .container {
       width: 100%;
-      max-width: 480px;
+      max-width: 520px;
       background: var(--card-bg);
       border-radius: 16px;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
       padding: 24px;
     }
 
-    /* 登入區塊樣式 */
     #loginSection {
       text-align: center;
       padding: 32px 16px;
@@ -65,7 +64,6 @@
       justify-content: center;
     }
 
-    /* 記帳介面樣式 */
     #appSection {
       display: none;
     }
@@ -113,12 +111,11 @@
     }
 
     .btn-logout:hover {
-      background: #f9fafb;
+      background: #f1f5f9;
       color: var(--danger);
       border-color: var(--danger);
     }
 
-    /* 總額卡片 */
     .summary-card {
       background: #eef2ff;
       border-radius: 12px;
@@ -139,31 +136,69 @@
       color: var(--primary);
     }
 
-    /* 表單區塊 */
     .form-group {
       display: flex;
       flex-direction: column;
       gap: 12px;
       margin-bottom: 24px;
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
     }
 
-    .form-row {
+    .input-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
+      align-items: center;
     }
 
     input, select {
       width: 100%;
-      padding: 10px 12px;
+      padding: 9px 12px;
       border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 14px;
       outline: none;
-      transition: border-color 0.2s;
+      background: #fff;
     }
 
     input:focus, select:focus {
       border-color: var(--primary);
+    }
+
+    /* 明細品項清單 */
+    .items-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .sub-item-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .btn-add-item {
+      background: #fff;
+      border: 1px dashed var(--primary);
+      color: var(--primary);
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn-add-item:hover {
+      background: #eef2ff;
     }
 
     .btn-submit {
@@ -175,14 +210,14 @@
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s;
+      margin-top: 6px;
     }
 
     .btn-submit:hover {
       background: var(--primary-hover);
     }
 
-    /* 記帳列表 */
+    /* 歷史紀錄 */
     .list-header {
       font-size: 15px;
       font-weight: 600;
@@ -193,44 +228,56 @@
       list-style: none;
       padding: 0;
       margin: 0;
-      max-height: 240px;
+      max-height: 280px;
       overflow-y: auto;
     }
 
-    .expense-item {
+    .record-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+
+    .record-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
-      border-radius: 8px;
-      background: #f9fafb;
+      border-bottom: 1px dashed var(--border);
+      padding-bottom: 6px;
       margin-bottom: 8px;
+    }
+
+    .record-title {
+      font-weight: 600;
       font-size: 14px;
     }
 
-    .expense-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .expense-category {
-      font-weight: 600;
-    }
-
-    .expense-desc {
+    .record-date {
       font-size: 12px;
       color: var(--text-sub);
     }
 
-    .expense-action {
+    .sub-item-line {
       display: flex;
-      align-items: center;
-      gap: 12px;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-sub);
+      padding: 2px 0;
     }
 
-    .expense-amount {
-      font-weight: 600;
+    .record-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+
+    .total-cost {
+      font-weight: 700;
       color: var(--text-main);
     }
 
@@ -239,28 +286,26 @@
       border: none;
       color: var(--text-sub);
       cursor: pointer;
-      font-size: 16px;
+      font-size: 14px;
       padding: 2px 6px;
-      border-radius: 4px;
     }
 
     .btn-delete:hover {
       color: var(--danger);
-      background: #fee2e2;
     }
 
     .empty-state {
       text-align: center;
       color: var(--text-sub);
       font-size: 13px;
-      padding: 20px 0;
+      padding: 24px 0;
     }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <!-- 登入卡片 -->
+    <!-- 登入區塊 -->
     <div id="loginSection">
       <h2>記帳小幫手</h2>
       <p>登入 Google 帳戶以同步您的個人記帳資料</p>
@@ -287,31 +332,33 @@
         <button class="btn-logout" onclick="handleLogout()">登出</button>
       </div>
 
-      <!-- 總花費看板 -->
+      <!-- 總額看板 -->
       <div class="summary-card">
         <div class="summary-title">總累計支出</div>
         <div class="summary-amount">$ <span id="totalAmount">0</span></div>
       </div>
 
       <!-- 記帳表單 -->
-      <form id="expenseForm" class="form-group" onsubmit="addExpense(event)">
-        <div class="form-row">
-          <select id="categorySelect" required>
-            <option value="餐飲">🍔 餐飲</option>
-            <option value="交通">🚗 交通</option>
-            <option value="娛樂">🎮 娛樂</option>
-            <option value="日常">🛒 日常</option>
-            <option value="其他">📦 其他</option>
-          </select>
-          <input type="number" id="amountInput" placeholder="金額" min="1" required>
+      <form id="expenseForm" class="form-group" onsubmit="saveTransaction(event)">
+        <div class="input-row">
+          <!-- 日曆選擇器 -->
+          <input type="date" id="txDate" required style="flex: 1;">
+          <!-- 交易主說明 (例如：全聯採購、晚餐) -->
+          <input type="text" id="txTitle" placeholder="交易名稱 (如: 晚餐、好市多)" required style="flex: 2;">
         </div>
-        <input type="text" id="descInput" placeholder="備註說明 (選填)">
-        <button type="submit" class="btn-submit">新增紀錄</button>
+
+        <div style="font-size: 13px; font-weight: 600; margin-top: 4px;">品項明細：</div>
+        
+        <!-- 動態品項清單容器 -->
+        <div id="itemsContainer" class="items-container"></div>
+
+        <button type="button" class="btn-add-item" onclick="addItemRow()">+ 新增明細品項</button>
+        <button type="submit" class="btn-submit">儲存此筆交易</button>
       </form>
 
-      <!-- 歷史消費列表 -->
-      <div class="list-header">消費明細</div>
-      <ul id="expenseList" class="expense-list"></ul>
+      <!-- 歷史紀錄 -->
+      <div class="list-header">消費明細總覽</div>
+      <div id="expenseList" class="expense-list"></div>
     </div>
   </div>
 
@@ -319,8 +366,14 @@
     let currentUser = null;
     let records = [];
 
-    // 初始化：檢查是否有保存的登入狀態
+    // 常用預設類別清單
+    const defaultCategories = ["🍔 餐飲", "🚗 交通", "🎮 娛樂", "🛒 日常", "📦 其他", "➕ 自訂其他..."];
+
     window.onload = function() {
+      // 預設日期為當天 (YYYY-MM-DD)
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById("txDate").value = today;
+
       const savedUser = localStorage.getItem("expense_google_user");
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -328,7 +381,6 @@
       }
     };
 
-    // Google 登入回呼
     function handleCredentialResponse(response) {
       const base64Url = response.credential.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -341,7 +393,6 @@
       loadUserData();
     }
 
-    // 載入當前使用者的介面與資料
     function loadUserData() {
       document.getElementById("loginSection").style.display = "none";
       document.getElementById("appSection").style.display = "block";
@@ -350,81 +401,161 @@
       document.getElementById("userEmail").innerText = currentUser.email;
       document.getElementById("userAvatar").src = currentUser.picture;
 
-      // 讀取該用戶專屬的紀錄（以 Email 作為 key，避免共用電腦混淆）
       const userKey = `records_${currentUser.email}`;
       const savedRecords = localStorage.getItem(userKey);
       records = savedRecords ? JSON.parse(savedRecords) : [];
+      
+      // 表單初始先塞一條明細
+      resetForm();
       renderList();
     }
 
-    // 新增記帳
-    function addExpense(e) {
+    // 重設表單並初始化一條明細
+    function resetForm() {
+      document.getElementById("txTitle").value = "";
+      document.getElementById("itemsContainer").innerHTML = "";
+      addItemRow();
+    }
+
+    // 動態新增單個品項
+    function addItemRow() {
+      const container = document.getElementById("itemsContainer");
+      const div = document.createElement("div");
+      div.className = "sub-item-card";
+
+      div.innerHTML = `
+        <div class="input-row">
+          <input type="text" placeholder="品項 (如: 奶茶)" class="item-name" required style="flex: 2;">
+          <input type="number" placeholder="金額" class="item-amount" min="1" required style="flex: 1;">
+          <button type="button" class="btn-delete" onclick="removeItemRow(this)">✕</button>
+        </div>
+        <div class="input-row">
+          <select class="item-category" onchange="checkCustomCategory(this)">
+            ${defaultCategories.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+          <input type="text" placeholder="輸入自訂類型" class="item-custom-category" style="display: none;">
+        </div>
+      `;
+
+      container.appendChild(div);
+    }
+
+    // 刪除品項（至少保留一項）
+    function removeItemRow(button) {
+      const container = document.getElementById("itemsContainer");
+      if (container.children.length > 1) {
+        button.closest(".sub-item-card").remove();
+      } else {
+        alert("一筆交易至少需包含一個品項明細！");
+      }
+    }
+
+    // 判斷是否選了「自訂其他」
+    function checkCustomCategory(select) {
+      const customInput = select.parentElement.querySelector(".item-custom-category");
+      if (select.value === "➕ 自訂其他...") {
+        customInput.style.display = "block";
+        customInput.required = true;
+        customInput.focus();
+      } else {
+        customInput.style.display = "none";
+        customInput.required = false;
+      }
+    }
+
+    // 儲存整筆交易（包含日期、標題、所有品項）
+    function saveTransaction(e) {
       e.preventDefault();
-      const category = document.getElementById("categorySelect").value;
-      const amount = Number(document.getElementById("amountInput").value);
-      const desc = document.getElementById("descInput").value.trim();
+      const date = document.getElementById("txDate").value;
+      const title = document.getElementById("txTitle").value.trim();
+
+      const itemCards = document.querySelectorAll(".sub-item-card");
+      const items = [];
+      let total = 0;
+
+      itemCards.forEach(card => {
+        const name = card.querySelector(".item-name").value.trim();
+        const amount = Number(card.querySelector(".item-amount").value);
+        const categorySelect = card.querySelector(".item-category").value;
+        const customCategory = card.querySelector(".item-custom-category").value.trim();
+
+        // 判定自訂類型或選定類型
+        const finalCategory = (categorySelect === "➕ 自訂其他...") 
+          ? (customCategory ? `🏷️ ${customCategory}` : "📦 其他") 
+          : categorySelect;
+
+        items.push({ name, amount, category: finalCategory });
+        total += amount;
+      });
 
       const newRecord = {
         id: Date.now(),
-        category,
-        amount,
-        desc: desc || "無備註",
-        date: new Date().toLocaleDateString()
+        date,
+        title,
+        items,
+        total
       };
 
       records.unshift(newRecord);
       saveRecords();
       renderList();
-
-      document.getElementById("amountInput").value = "";
-      document.getElementById("descInput").value = "";
+      resetForm();
     }
 
-    // 刪除記帳
-    function deleteExpense(id) {
-      records = records.filter(item => item.id !== id);
+    function deleteRecord(id) {
+      records = records.filter(r => r.id !== id);
       saveRecords();
       renderList();
     }
 
-    // 存入 localStorage
     function saveRecords() {
       const userKey = `records_${currentUser.email}`;
       localStorage.setItem(userKey, JSON.stringify(records));
     }
 
-    // 渲染清單與總額
     function renderList() {
       const listEl = document.getElementById("expenseList");
       const totalEl = document.getElementById("totalAmount");
       listEl.innerHTML = "";
 
-      let total = 0;
+      let grandTotal = 0;
 
       if (records.length === 0) {
-        listEl.innerHTML = `<div class="empty-state">目前還沒有任何消費紀錄</div>`;
+        listEl.innerHTML = `<div class="empty-state">尚無交易紀錄，趕快記下第一筆吧！</div>`;
       } else {
-        records.forEach(item => {
-          total += item.amount;
-          const li = document.createElement("li");
-          li.className = "expense-item";
-          li.innerHTML = `
-            <div class="expense-info">
-              <span class="expense-category">${item.category} · $${item.amount}</span>
-              <span class="expense-desc">${item.desc} · ${item.date}</span>
+        records.forEach(rec => {
+          grandTotal += rec.total;
+
+          const card = document.createElement("div");
+          card.className = "record-card";
+
+          // 組合內部明細清單
+          const itemsHtml = rec.items.map(item => `
+            <div class="sub-item-line">
+              <span>${item.name} <small>(${item.category})</small></span>
+              <span>$${item.amount}</span>
             </div>
-            <div class="expense-action">
-              <button class="btn-delete" title="刪除" onclick="deleteExpense(${item.id})">✕</button>
+          `).join('');
+
+          card.innerHTML = `
+            <div class="record-header">
+              <span class="record-title">${rec.title}</span>
+              <span class="record-date">${rec.date}</span>
+            </div>
+            <div>${itemsHtml}</div>
+            <div class="record-footer">
+              <span class="total-cost">總計: $${rec.total}</span>
+              <button class="btn-delete" title="刪除此紀錄" onclick="deleteRecord(${rec.id})">刪除</button>
             </div>
           `;
-          listEl.appendChild(li);
+
+          listEl.appendChild(card);
         });
       }
 
-      totalEl.innerText = total.toLocaleString();
+      totalEl.innerText = grandTotal.toLocaleString();
     }
 
-    // 登出
     function handleLogout() {
       localStorage.removeItem("expense_google_user");
       currentUser = null;
@@ -433,7 +564,6 @@
       document.getElementById("appSection").style.display = "none";
       document.getElementById("loginSection").style.display = "block";
       
-      // 重新渲染 Google 按鈕
       google.accounts.id.renderButton(
         document.querySelector(".g_id_signin"),
         { theme: "outline", size: "large" }
