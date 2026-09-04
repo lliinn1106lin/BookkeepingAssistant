@@ -46,6 +46,8 @@
     .btn-oauth:hover { background-color: #f1f5f9; }
     .btn-github { background: #24292f; color: #ffffff; border-color: #24292f; }
     .btn-github:hover { background-color: #1a1e22; }
+    .btn-anon { background: #f8fafc; border: 1px dashed #94a3b8; color: #475569; }
+    .btn-anon:hover { background-color: #f1f5f9; }
 
     .divider { display: flex; align-items: center; text-align: center; margin: 16px 0; color: var(--text-sub); font-size: 12px; }
     .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
@@ -90,7 +92,7 @@
   <div class="container">
     <div id="authSection">
       <h2>記帳小幫手</h2>
-      <p style="color: var(--text-sub); font-size: 14px; margin-bottom: 20px;">支援 Email、Google 與 GitHub 帳號互綁同步</p>
+      <p style="color: var(--text-sub); font-size: 14px; margin-bottom: 20px;">支援 Email、Google、GitHub 與訪客試用</p>
       
       <div class="auth-tabs">
         <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">登入</button>
@@ -114,6 +116,9 @@
             <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
           </svg>
           以 GitHub 帳戶繼續
+        </button>
+        <button class="btn-oauth btn-anon" type="button" onclick="handleAnonymousLogin()">
+          👤 免註冊訪客快速試用
         </button>
       </div>
     </div>
@@ -197,9 +202,16 @@
         currentUser = user;
         document.getElementById("authSection").style.display = "none";
         document.getElementById("appSection").style.display = "block";
-        document.getElementById("userName").innerText = user.displayName || user.email.split('@')[0];
-        document.getElementById("userEmail").innerText = user.email || "(未提供公開 Email)";
-        if (user.photoURL) document.getElementById("userAvatar").src = user.photoURL;
+        
+        if (user.isAnonymous) {
+          document.getElementById("userName").innerText = "訪客用戶";
+          document.getElementById("userEmail").innerText = "點擊下方按鈕可升級綁定正式帳號";
+          document.getElementById("userAvatar").src = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+        } else {
+          document.getElementById("userName").innerText = user.displayName || user.email?.split('@')[0] || "使用者";
+          document.getElementById("userEmail").innerText = user.email || "(未公開信箱)";
+          if (user.photoURL) document.getElementById("userAvatar").src = user.photoURL;
+        }
 
         updateLinkStatusBar();
         resetForm();
@@ -221,12 +233,15 @@
       const btnContainer = document.getElementById("linkButtonsContainer");
       btnContainer.innerHTML = "";
 
-      const activeList = [];
-      if (isGoogle) activeList.push("Google");
-      if (isGithub) activeList.push("GitHub");
-      if (isPassword) activeList.push("Email 密碼");
-
-      infoText.innerHTML = `已綁定：<b>${activeList.join("、")}</b>`;
+      if (currentUser.isAnonymous) {
+        infoText.innerHTML = "⚠️ <b>目前為暫時性訪客帳號</b>（升級綁定後可永久保存資料）：";
+      } else {
+        const activeList = [];
+        if (isGoogle) activeList.push("Google");
+        if (isGithub) activeList.push("GitHub");
+        if (isPassword) activeList.push("Email 密碼");
+        infoText.innerHTML = `已綁定：<b>${activeList.join("、")}</b>`;
+      }
 
       if (!isGoogle) {
         const btn = document.createElement("button");
@@ -242,10 +257,10 @@
         btn.onclick = () => linkProvider(new firebase.auth.GithubAuthProvider(), "GitHub");
         btnContainer.appendChild(btn);
       }
-      if (!isPassword && currentUser.email) {
+      if (!isPassword) {
         const btn = document.createElement("button");
         btn.className = "btn-link-action";
-        btn.innerText = "🔑 設定密碼登入";
+        btn.innerText = currentUser.isAnonymous ? "✉️ 綁定 Email / 密碼" : "🔑 設定密碼登入";
         btn.onclick = linkPassword;
         btnContainer.appendChild(btn);
       }
@@ -254,7 +269,7 @@
     async function linkProvider(provider, providerName) {
       try {
         await currentUser.linkWithPopup(provider);
-        alert(`🎉 成功綁定 ${providerName}！下次可直接使用該方式登入。`);
+        alert(`🎉 成功綁定 ${providerName}！`);
         updateLinkStatusBar();
       } catch (err) {
         alert("綁定失敗: " + err.message);
@@ -262,15 +277,20 @@
     }
 
     async function linkPassword() {
-      const newPassword = prompt("請為此帳號設定登入密碼（至少 6 碼）：");
+      let email = currentUser.email;
+      if (!email) {
+        email = prompt("請輸入欲綁定的電子信箱 (Email)：");
+        if (!email) return;
+      }
+      const newPassword = prompt("請設定登入密碼（至少 6 碼）：");
       if (!newPassword || newPassword.length < 6) {
         alert("密碼長度需至少 6 個字元！");
         return;
       }
-      const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, newPassword);
+      const credential = firebase.auth.EmailAuthProvider.credential(email.trim(), newPassword);
       try {
         await currentUser.linkWithCredential(credential);
-        alert("🎉 密碼設定成功！下次可以使用 Email + 密碼登入！");
+        alert("🎉 帳號密碼綁定成功！下次可直接用此 Email 與密碼登入！");
         updateLinkStatusBar();
       } catch (err) {
         alert("設定失敗: " + err.message);
@@ -297,7 +317,7 @@
           await auth.signInWithEmailAndPassword(email, password);
         }
       } catch (err) {
-        alert("登入/註冊失敗: " + err.message);
+        alert("操作失敗: " + err.message);
       }
     }
 
@@ -317,6 +337,14 @@
       }
     }
 
+    async function handleAnonymousLogin() {
+      try {
+        await auth.signInAnonymously();
+      } catch (err) {
+        alert("訪客登入失敗: " + err.message);
+      }
+    }
+
     function handleLogout() {
       auth.signOut();
     }
@@ -327,8 +355,8 @@
       statusEl.style.color = "#4f46e5";
 
       try {
-        const emailIdentifier = currentUser.email || currentUser.uid;
-        const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(emailIdentifier)}`);
+        const identifier = currentUser.email || currentUser.uid;
+        const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(identifier)}`);
         const result = await res.json();
         if (result.status === "success") {
           records = result.records || [];
@@ -404,12 +432,12 @@
       statusEl.style.color = "#4f46e5";
 
       try {
-        const emailIdentifier = currentUser.email || currentUser.uid;
+        const identifier = currentUser.email || currentUser.uid;
         await fetch(GAS_API_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "sync", email: emailIdentifier, records: [newRecord] })
+          body: JSON.stringify({ action: "sync", email: identifier, records: [newRecord] })
         });
         setTimeout(fetchRecordsFromSheets, 1200);
         resetForm();
@@ -425,12 +453,12 @@
       renderList();
 
       try {
-        const emailIdentifier = currentUser.email || currentUser.uid;
+        const identifier = currentUser.email || currentUser.uid;
         await fetch(GAS_API_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "delete", email: emailIdentifier, id: recordId })
+          body: JSON.stringify({ action: "delete", email: identifier, id: recordId })
         });
       } catch (err) {
         console.error(err);
