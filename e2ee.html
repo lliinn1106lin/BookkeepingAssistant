@@ -4,11 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>記帳小幫手 - 隱私端對端加密版</title>
-  <meta name="description" content="全端零知識端對端加密記帳網站，支援小票明細、自動時間紀錄，連創作者也看不到您的隱私消費明細。">
+  <title>記帳小幫手 - 隱私端對端加密版 (多重登入)</title>
+  <meta name="description" content="全端零知識端對端加密記帳網站，支援多種登入方式、小票明細、自動時間紀錄，連創作者也看不到您的隱私消費明細。">
   <meta name="keywords" content="記帳, 雲端記帳, 端對端加密, Google試算表記帳, 免費記帳軟體">
   <meta name="author" content="林緯宸">
 
+  <!-- Google 登入 SDK & CryptoJS 專業加密庫 -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
@@ -30,10 +31,52 @@
     body { margin: 0; background-color: var(--bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
     .container { width: 100%; max-width: 520px; background: var(--card-bg); border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); padding: 24px; }
     
-    #loginSection { text-align: center; padding: 32px 16px; }
+    #loginSection { text-align: center; padding: 20px 8px; }
     #loginSection h2 { margin: 0 0 8px 0; font-size: 24px; }
-    #loginSection p { color: var(--text-sub); margin-bottom: 24px; font-size: 14px; }
-    .btn-container { display: flex; justify-content: center; }
+    #loginSection p { color: var(--text-sub); margin-bottom: 20px; font-size: 14px; }
+    
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 20px 0;
+      color: var(--text-sub);
+      font-size: 13px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--border);
+    }
+    .divider:not(:empty)::before { margin-right: 12px; }
+    .divider:not(:empty)::after { margin-left: 12px; }
+
+    .custom-login-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+      background: #f1f5f9;
+      border-color: var(--text-sub);
+    }
 
     .modal-overlay {
       display: none;
@@ -57,7 +100,7 @@
     #appSection { display: none; }
     .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }
     .user-info { display: flex; align-items: center; gap: 12px; }
-    .user-info img { width: 40px; height: 40px; border-radius: 50%; }
+    .user-info img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
     .user-info .name { font-weight: 600; font-size: 15px; }
     .user-info .email { font-size: 12px; color: var(--text-sub); }
     .btn-action { background: transparent; border: 1px solid var(--border); color: var(--text-sub); padding: 6px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; }
@@ -85,18 +128,38 @@
 <body>
 
   <div class="container">
+    <!-- 多元登入區塊 -->
     <div id="loginSection">
       <h2>記帳小幫手 🔒</h2>
       <p>端對端加密版：連網站作者也看不到您的消費明細</p>
-      <div class="btn-container">
+      
+      <!-- 方式 1：Google 快速登入 -->
+      <div style="display: flex; justify-content: center; margin-bottom: 8px;">
         <div id="g_id_onload"
              data-client_id="274021423976-8u87lhvlg38rpn2kk6rta8vph9pdmjm0.apps.googleusercontent.com"
              data-callback="handleCredentialResponse">
         </div>
         <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
       </div>
+
+      <div class="divider">或使用其他方式</div>
+
+      <!-- 方式 2：自訂帳號/信箱登入 -->
+      <form class="custom-login-box" onsubmit="handleCustomLogin(event)">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">自訂帳號 / Email 登入：</div>
+        <input type="text" id="customUserIdentifier" placeholder="輸入常用 Email 或帳號名稱" required>
+        <button type="submit" class="btn-secondary">以自訂帳號登入並同步</button>
+      </form>
+
+      <!-- 方式 3：訪客純本機記帳 -->
+      <div style="margin-top: 14px;">
+        <button type="button" class="btn-action" style="width: 100%; padding: 10px;" onclick="handleGuestLogin()">
+          🛡️ 免登入 / 訪客純本機離線模式
+        </button>
+      </div>
     </div>
 
+    <!-- 記帳主介面 -->
     <div id="appSection">
       <div class="header-bar">
         <div class="user-info">
@@ -213,18 +276,48 @@
       return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
 
+    // 1. Google 登入
     function handleCredentialResponse(response) {
       const base64Url = response.credential.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
       
       currentUser = JSON.parse(jsonPayload);
-      localStorage.setItem("expense_google_user", JSON.stringify(currentUser));
+      currentUser.type = "google";
+      localStorage.setItem("expense_active_user", JSON.stringify(currentUser));
+      checkSecuritySetup();
+    }
+
+    // 2. 自訂帳號 / Email 登入
+    function handleCustomLogin(e) {
+      e.preventDefault();
+      const identifier = document.getElementById("customUserIdentifier").value.trim();
+      if (!identifier) return;
+
+      currentUser = {
+        name: identifier.split('@')[0],
+        email: identifier,
+        picture: "https://api.dicebear.com/7.x/bottts/svg?seed=" + encodeURIComponent(identifier),
+        type: "custom"
+      };
+      localStorage.setItem("expense_active_user", JSON.stringify(currentUser));
+      checkSecuritySetup();
+    }
+
+    // 3. 訪客本機模式登入
+    function handleGuestLogin() {
+      currentUser = {
+        name: "訪客 (本機離線)",
+        email: "guest_offline_user",
+        picture: "https://api.dicebear.com/7.x/identicon/svg?seed=guest",
+        type: "guest"
+      };
+      localStorage.setItem("expense_active_user", JSON.stringify(currentUser));
       checkSecuritySetup();
     }
 
     window.onload = function() {
-      const savedUser = localStorage.getItem("expense_google_user");
+      const savedUser = localStorage.getItem("expense_active_user");
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
         checkSecuritySetup();
@@ -455,4 +548,93 @@
       records.unshift(newRecord);
       
       saveRecordsLocally();
-      rend
+      renderList();
+      resetForm();
+
+      // 如果是純訪客模式，不送上雲端
+      if (currentUser.type === "guest") {
+        const statusEl = document.getElementById("syncStatus");
+        statusEl.innerText = "🔒 訪客模式：資料已純本機加密保存（未上傳雲端）";
+        statusEl.style.color = "#16a34a";
+        return;
+      }
+
+      // 端對端加密雲端同步
+      const encryptedPayload = [{
+        id: newRecord.id,
+        dateTime: newRecord.dateTime,
+        title: CryptoJS.AES.encrypt(newRecord.title, masterKey).toString(),
+        items: [{
+          name: CryptoJS.AES.encrypt(JSON.stringify(newRecord.items), masterKey).toString(),
+          category: "E2EE-Encrypted",
+          amount: 0
+        }],
+        total: `[加密保護: ${CryptoJS.AES.encrypt(String(total), masterKey).toString().substring(0, 8)}...]`
+      }];
+
+      syncToGoogleSheets(encryptedPayload);
+    }
+
+    function saveRecordsLocally() {
+      const cipher = CryptoJS.AES.encrypt(JSON.stringify(records), masterKey).toString();
+      localStorage.setItem(`records_${currentUser.email}`, cipher);
+    }
+
+    async function syncToGoogleSheets(encryptedData) {
+      const statusEl = document.getElementById("syncStatus");
+      statusEl.innerText = "⏳ 正在端對端加密同步至 Google 試算表...";
+      statusEl.style.color = "#4f46e5";
+
+      try {
+        await fetch(GAS_API_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "sync",
+            email: currentUser.email,
+            records: encryptedData
+          })
+        });
+        statusEl.innerText = "🔒 資料已全數加密寫入試算表（創作者無法檢視）！";
+        statusEl.style.color = "#16a34a";
+      } catch (err) {
+        statusEl.innerText = "❌ 同步失敗，資料已安全儲存於本機";
+        statusEl.style.color = "#dc2626";
+      }
+    }
+
+    function renderList() {
+      const listEl = document.getElementById("expenseList");
+      let total = 0;
+      listEl.innerHTML = records.length ? "" : `<div style="text-align:center; color:#64748b; font-size:13px; padding:20px;">尚無交易紀錄</div>`;
+
+      records.forEach(r => {
+        total += r.total;
+        const div = document.createElement("div");
+        div.className = "record-card";
+        div.innerHTML = `
+          <div class="record-header">
+            <span>${r.title}</span>
+            <span style="font-size:12px; color:#64748b;">${r.dateTime.replace('T', ' ')}</span>
+          </div>
+          ${r.items.map(i => `<div class="sub-item-line"><span>${i.name} <small>(${i.category})</small></span><span>$${i.amount}</span></div>`).join('')}
+          <div class="record-footer"><span>總計</span><span>$${r.total}</span></div>
+        `;
+        listEl.appendChild(div);
+      });
+      document.getElementById("totalAmount").innerText = total.toLocaleString();
+    }
+
+    function handleLogout() {
+      localStorage.removeItem("expense_active_user");
+      currentUser = null;
+      masterKey = null;
+      records = [];
+      document.getElementById("appSection").style.display = "none";
+      document.getElementById("loginSection").style.display = "block";
+      google.accounts.id.renderButton(document.querySelector(".g_id_signin"), { theme: "outline", size: "large" });
+    }
+  </script>
+</body>
+</html>
