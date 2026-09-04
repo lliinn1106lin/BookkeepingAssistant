@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>雲端記帳本</title>
+  <style>
+    body { font-family: sans-serif; max-width: 500px; margin: 30px auto; padding: 0 15px; }
+    .card { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    button { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; }
+    input { padding: 8px; margin-right: 5px; margin-bottom: 10px; }
+    ul { list-style: none; padding: 0; }
+    li { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <h1>雲端記帳本 💸</h1>
+
+  <div id="auth-section" class="card">
+    <button id="btn-login">使用 Google 登入</button>
+  </div>
+
+  <div id="app-section" class="hidden">
+    <div class="card">
+      <span id="user-info"></span>
+      <button id="btn-logout" style="float: right;">登出</button>
+    </div>
+
+    <div class="card">
+      <h3>新增一筆</h3>
+      <input type="text" id="item-title" placeholder="項目（例：午餐）" />
+      <input type="number" id="item-amount" placeholder="金額" />
+      <br/>
+      <button id="btn-add">記錄送出</button>
+    </div>
+
+    <h3>消費明細</h3>
+    <ul id="records-list"></ul>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithPopup, 
+      GoogleAuthProvider, 
+      onAuthStateChanged, 
+      signOut 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      query, 
+      where, 
+      orderBy, 
+      onSnapshot,
+      serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // ⚠️ 替換成你在 Firebase Console 拿到的設定
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    let currentUser = null;
+    let unsubscribeSnapshot = null;
+
+    // DOM 元素
+    const authSec = document.getElementById("auth-section");
+    const appSec = document.getElementById("app-section");
+    const userInfo = document.getElementById("user-info");
+    const recordsList = document.getElementById("records-list");
+
+    // 監聽登入狀態
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        authSec.classList.add("hidden");
+        appSec.classList.remove("hidden");
+        userInfo.innerText = `嗨，${user.displayName}`;
+        loadRecords(user.uid);
+      } else {
+        currentUser = null;
+        authSec.classList.remove("hidden");
+        appSec.classList.add("hidden");
+        if (unsubscribeSnapshot) unsubscribeSnapshot();
+      }
+    });
+
+    // 登入 / 登出事件
+    document.getElementById("btn-login").onclick = () => signInWithPopup(auth, provider);
+    document.getElementById("btn-logout").onclick = () => signOut(auth);
+
+    // 新增記帳資料
+    document.getElementById("btn-add").onclick = async () => {
+      const title = document.getElementById("item-title").value.trim();
+      const amount = Number(document.getElementById("item-amount").value);
+
+      if (!title || !amount) return alert("請填寫項目跟金額！");
+
+      await addDoc(collection(db, "expenses"), {
+        uid: currentUser.uid,
+        title: title,
+        amount: amount,
+        createdAt: serverTimestamp()
+      });
+
+      document.getElementById("item-title").value = "";
+      document.getElementById("item-amount").value = "";
+    };
+
+    // 即時同步雲端資料
+    function loadRecords(uid) {
+      const q = query(
+        collection(db, "expenses"),
+        where("uid", "==", uid),
+        orderBy("createdAt", "desc")
+      );
+
+      unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+        recordsList.innerHTML = "";
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const li = document.createElement("li");
+          li.innerHTML = `<span>${data.title}</span> <strong>$${data.amount}</strong>`;
+          recordsList.appendChild(li);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
