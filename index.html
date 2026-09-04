@@ -94,8 +94,8 @@
   </div>
 
   <script>
-    // ⚠️ 替換成在 Step 2 部署後複製的 Apps Script 網頁應用程式 URL
-    const GAS_API_URL = "https://script.google.com/macros/s/替換你的GAS_URL/exec";
+    // 這裡已經直接幫你填上剛才的 Apps Script 網址！
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzYo7S7rkkLdEPZx9DxRi3TARmibSIjOvb5Rx1dIVWKIR8J0GfRDbRLvXQ1hRkVMq1q/exec";
 
     let currentUser = null;
     let records = [];
@@ -196,7 +196,6 @@
       renderList();
       resetForm();
 
-      // 同步到 Google 試算表
       syncToGoogleSheets([newRecord]);
     }
 
@@ -208,7 +207,7 @@
       try {
         await fetch(GAS_API_URL, {
           method: "POST",
-          mode: "no-cors", // Apps Script 跨網域標準寫法
+          mode: "no-cors",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "sync",
