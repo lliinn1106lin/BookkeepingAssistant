@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <!-- PWA 與手機桌面設定 -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#4f46e5">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="記帳小幫手">
-<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2331/2331941.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>記帳小幫手</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- PWA 與手機桌面設定 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="記帳小幫手">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2331/2331941.png">
+
+  <!-- 載入 Firebase SDK (相容版，免打包直接可用) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
   <style>
     :root {
       --primary: #4f46e5;
@@ -22,65 +27,103 @@
       --text-sub: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
-      --danger-hover: #dc2626;
+      --warning: #f59e0b;
+      --success: #16a34a;
     }
 
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { margin: 0; background-color: var(--bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
     .container { width: 100%; max-width: 520px; background: var(--card-bg); border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); padding: 24px; }
-    #loginSection { text-align: center; padding: 32px 16px; }
-    .btn-container { display: flex; justify-content: center; margin-top: 20px; }
+    
+    #authSection { text-align: center; padding: 20px 8px; }
+    .auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .auth-tab { flex: 1; padding: 10px; border: none; background: none; font-size: 15px; font-weight: 600; color: var(--text-sub); cursor: pointer; }
+    .auth-tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+    .auth-form { display: flex; flex-direction: column; gap: 12px; }
+    .btn-google { background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; }
+    .divider { display: flex; align-items: center; text-align: center; margin: 16px 0; color: var(--text-sub); font-size: 12px; }
+    .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
+    .divider:not(:empty)::before { margin-right: .5em; }
+    .divider:not(:empty)::after { margin-left: .5em; }
+
     #appSection { display: none; }
-    .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px; }
     .user-info { display: flex; align-items: center; gap: 12px; }
     .user-info img { width: 40px; height: 40px; border-radius: 50%; }
     .user-info .name { font-weight: 600; font-size: 15px; }
     .user-info .email { font-size: 12px; color: var(--text-sub); }
     .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-sub); padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    
+    .link-status-bar { background: #f1f5f9; padding: 8px 12px; border-radius: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .btn-link-action { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 11px; font-weight: 600; }
+    .btn-link-action:hover { background: #e2e8f0; }
+
+    .verify-banner { background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
     .summary-card { background: #eef2ff; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 16px; }
     .summary-amount { font-size: 28px; font-weight: 700; color: var(--primary); }
     .sync-bar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 16px; color: var(--text-sub); }
     .btn-reload { background: #fff; border: 1px solid var(--border); color: var(--text-sub); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
-    .btn-reload:hover { border-color: var(--primary); color: var(--primary); }
+    
+    .search-box { margin-bottom: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
     .input-row { display: flex; gap: 8px; align-items: center; }
     input, select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; background: #fff; }
     .sub-item-card { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
     .btn-add-item { background: #fff; border: 1px dashed var(--primary); color: var(--primary); padding: 8px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; }
     .btn-submit { background: var(--primary); color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+    
     .record-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fff; }
     .record-header { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; border-bottom: 1px dashed var(--border); padding-bottom: 6px; margin-bottom: 6px; }
     .record-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; white-space: pre-line; }
     .record-footer { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
     .btn-card-delete { background: #fee2e2; border: 1px solid #fca5a5; color: var(--danger); border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
-    .btn-card-delete:hover { background: var(--danger); color: #fff; }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <div id="loginSection">
+    <div id="authSection">
       <h2>記帳小幫手</h2>
-      <p>登入 Google 帳戶以同步專屬雲端試算表</p>
-      <div class="btn-container">
-        <div id="g_id_onload"
-             data-client_id="274021423976-8u87lhvlg38rpn2kk6rta8vph9pdmjm0.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse">
-        </div>
-        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
+      <p style="color: var(--text-sub); font-size: 14px; margin-bottom: 20px;">支援 Email 與 Google 帳號互綁同步</p>
+      
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">登入</button>
+        <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">註冊帳號</button>
       </div>
+
+      <form class="auth-form" onsubmit="handleEmailAuth(event)">
+        <input type="email" id="authEmail" placeholder="電子信箱 (Email)" required>
+        <input type="password" id="authPassword" placeholder="密碼 (至少 6 個字元)" minlength="6" required>
+        <button type="submit" class="btn-submit" id="btnAuthSubmit">立即登入</button>
+      </form>
+
+      <div class="divider">或使用快速登入</div>
+      <button class="btn-google" type="button" onclick="handleGoogleLogin()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
+        以 Google 帳戶繼續
+      </button>
     </div>
 
     <div id="appSection">
       <div class="header-bar">
         <div class="user-info">
-          <img id="userAvatar" src="" alt="頭貼">
+          <img id="userAvatar" src="https://cdn-icons-png.flaticon.com/512/847/847969.png" alt="頭貼">
           <div>
             <div id="userName" class="name"></div>
             <div id="userEmail" class="email"></div>
           </div>
         </div>
         <button class="btn-logout" onclick="handleLogout()">登出</button>
+      </div>
+
+      <div class="link-status-bar" id="linkStatusBar">
+        <span id="linkInfoText">載入綁定狀態...</span>
+        <button class="btn-link-action" id="btnLinkAction" onclick="handleAccountLinking()">操作</button>
+      </div>
+
+      <div id="verifyBanner" class="verify-banner" style="display: none;">
+        <span>⚠️ Email 尚未驗證，請至信箱確認驗證信。</span>
+        <button type="button" style="background:none; border:none; color:#b45309; text-decoration:underline; cursor:pointer;" onclick="resendVerificationEmail()">重寄驗證信</button>
       </div>
 
       <div class="summary-card">
@@ -93,7 +136,7 @@
         <button class="btn-reload" onclick="fetchRecordsFromSheets()">🔄 從試算表重新整理</button>
       </div>
 
-      <form class="form-group" onsubmit="saveTransaction(event)">
+      <form class="form-group" id="mainForm" onsubmit="saveTransaction(event)">
         <div class="input-row">
           <input type="datetime-local" id="txDateTime" required style="flex: 1.3;">
           <input type="text" id="txTitle" placeholder="交易名稱" required style="flex: 1.7;">
@@ -104,16 +147,37 @@
         <button type="submit" class="btn-submit">儲存並同步至試算表</button>
       </form>
 
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 搜尋交易名稱或品項..." oninput="renderList()">
+      </div>
+
       <div style="font-size: 15px; font-weight: 600; margin-bottom: 12px;">消費明細總覽</div>
       <div id="expenseList"></div>
     </div>
   </div>
 
   <script>
+    // 已自動帶入你的 Firebase 金鑰
+    const firebaseConfig = {
+      apiKey: "AIzaSyCH0FXlkIWyzooaF-bc7cQ4GClNHZBUA7E",
+      authDomain: "bookkeeping-app-9e1dc.firebaseapp.com",
+      projectId: "bookkeeping-app-9e1dc",
+      storageBucket: "bookkeeping-app-9e1dc.firebasestorage.app",
+      messagingSenderId: "414465795324",
+      appId: "1:414465795324:web:e000492cb26487e41b2f0a"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzYo7S7rkkLdEPZx9DxRi3TARmibSIjOvb5Rx1dIVWKIR8J0GfRDbRLvXQ1hRkVMq1q/exec";
 
     let currentUser = null;
     let records = [];
+    let currentAuthMode = "login";
+    let isLinkedGoogle = false;
+    let isLinkedPassword = false;
+
     const defaultCategories = ["🍔 餐飲", "🚗 交通", "🎮 娛樂", "🛒 日常", "📦 其他", "➕ 自訂其他..."];
 
     function getCurrentLocalDateTime() {
@@ -121,32 +185,119 @@
       return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
 
-    window.onload = function() {
-      const savedUser = localStorage.getItem("expense_google_user");
-      if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        loadUserData();
-      }
-    };
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("authSection").style.display = "none";
+        document.getElementById("appSection").style.display = "block";
+        document.getElementById("userName").innerText = user.displayName || user.email.split('@')[0];
+        document.getElementById("userEmail").innerText = user.email;
+        if (user.photoURL) document.getElementById("userAvatar").src = user.photoURL;
 
-    function handleCredentialResponse(response) {
-      const base64Url = response.credential.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-      currentUser = JSON.parse(jsonPayload);
-      localStorage.setItem("expense_google_user", JSON.stringify(currentUser));
-      loadUserData();
+        document.getElementById("verifyBanner").style.display = user.emailVerified ? "none" : "flex";
+
+        updateLinkStatusBar();
+        resetForm();
+        fetchRecordsFromSheets();
+      } else {
+        currentUser = null;
+        document.getElementById("appSection").style.display = "none";
+        document.getElementById("authSection").style.display = "block";
+      }
+    });
+
+    function updateLinkStatusBar() {
+      const providers = currentUser.providerData.map(p => p.providerId);
+      isLinkedGoogle = providers.includes("google.com");
+      isLinkedPassword = providers.includes("password");
+
+      const infoText = document.getElementById("linkInfoText");
+      const actionBtn = document.getElementById("btnLinkAction");
+
+      if (isLinkedGoogle && isLinkedPassword) {
+        infoText.innerHTML = "✅ 已同時啟用 <b>Google</b> 與 <b>密碼</b> 登入！";
+        actionBtn.style.display = "none";
+      } else if (!isLinkedGoogle) {
+        infoText.innerText = "尚未綁定 Google 帳戶";
+        actionBtn.innerText = "🔗 綁定 Google 快速登入";
+        actionBtn.style.display = "block";
+      } else if (!isLinkedPassword) {
+        infoText.innerText = "尚未設定 Email 獨立密碼";
+        actionBtn.innerText = "🔑 設定登入密碼";
+        actionBtn.style.display = "block";
+      }
     }
 
-    function loadUserData() {
-      document.getElementById("loginSection").style.display = "none";
-      document.getElementById("appSection").style.display = "block";
-      document.getElementById("userName").innerText = currentUser.name;
-      document.getElementById("userEmail").innerText = currentUser.email;
-      document.getElementById("userAvatar").src = currentUser.picture;
+    async function handleAccountLinking() {
+      if (!isLinkedGoogle) {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+          await currentUser.linkWithPopup(provider);
+          alert("🎉 Google 帳號綁定成功！下次使用 Google 登入也能連至同一個帳號！");
+          updateLinkStatusBar();
+        } catch (err) {
+          alert("綁定失敗: " + err.message);
+        }
+      } else if (!isLinkedPassword) {
+        const newPassword = prompt("請為此帳號設定一組登入密碼（至少 6 碼）：");
+        if (!newPassword || newPassword.length < 6) {
+          alert("密碼長度至少需 6 個字元！");
+          return;
+        }
+        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, newPassword);
+        try {
+          await currentUser.linkWithCredential(credential);
+          alert("🎉 密碼設定成功！下次可以直接使用信箱與密碼登入！");
+          updateLinkStatusBar();
+        } catch (err) {
+          alert("設定失敗: " + err.message);
+        }
+      }
+    }
 
-      resetForm();
-      fetchRecordsFromSheets();
+    function switchAuthTab(mode) {
+      currentAuthMode = mode;
+      document.getElementById("tabLogin").classList.toggle("active", mode === "login");
+      document.getElementById("tabRegister").classList.toggle("active", mode === "register");
+      document.getElementById("btnAuthSubmit").innerText = mode === "login" ? "立即登入" : "註冊並發送驗證信";
+    }
+
+    async function handleEmailAuth(e) {
+      e.preventDefault();
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+
+      try {
+        if (currentAuthMode === "register") {
+          const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+          await userCredential.user.sendEmailVerification();
+          alert("註冊成功！驗證郵件已寄送，請至信箱點擊連結啟用帳號。");
+        } else {
+          await auth.signInWithEmailAndPassword(email, password);
+        }
+      } catch (err) {
+        alert("操作失敗: " + err.message);
+      }
+    }
+
+    async function handleGoogleLogin() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      try {
+        await auth.signInWithPopup(provider);
+      } catch (err) {
+        alert("Google 登入失敗: " + err.message);
+      }
+    }
+
+    async function resendVerificationEmail() {
+      if (currentUser) {
+        await currentUser.sendEmailVerification();
+        alert("驗證信已重新發送！");
+      }
+    }
+
+    function handleLogout() {
+      auth.signOut();
     }
 
     async function fetchRecordsFromSheets() {
@@ -157,18 +308,14 @@
       try {
         const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(currentUser.email)}`);
         const result = await res.json();
-
         if (result.status === "success") {
           records = result.records || [];
           renderList();
           statusEl.innerText = "✅ 已與試算表同步";
           statusEl.style.color = "#16a34a";
-        } else {
-          statusEl.innerText = "❌ 讀取失敗: " + result.message;
-          statusEl.style.color = "#dc2626";
         }
       } catch (err) {
-        statusEl.innerText = "⚠️ 載入試算表失敗，請檢查網路或部署設定";
+        statusEl.innerText = "⚠️ 讀取試算表失敗";
         statusEl.style.color = "#dc2626";
       }
     }
@@ -239,13 +386,8 @@
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "sync",
-            email: currentUser.email,
-            records: [newRecord]
-          })
+          body: JSON.stringify({ action: "sync", email: currentUser.email, records: [newRecord] })
         });
-
         setTimeout(fetchRecordsFromSheets, 1200);
         resetForm();
       } catch (err) {
@@ -254,56 +396,41 @@
       }
     }
 
-    // 刪除紀錄（含二次確認與試算表同步）
     async function confirmAndDelete(recordId, title, total) {
-      const isConfirmed = confirm(`確定要刪除「${title} ($${total})」這筆紀錄嗎？\n\n此操作會同時從雲端試算表中移除，無法復原！`);
-      if (!isConfirmed) return;
-
-      const statusEl = document.getElementById("syncStatus");
-      statusEl.innerText = "⏳ 正在從試算表刪除中...";
-      statusEl.style.color = "#4f46e5";
-
-      // 1. 先從前端暫存中移除並即刻更新畫面
+      if (!confirm(`確定要刪除「${title} ($${total})」嗎？`)) return;
       records = records.filter(r => String(r.id) !== String(recordId));
       renderList();
 
-      // 2. 同步發送刪除命令到 Google 試算表
       try {
         await fetch(GAS_API_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "delete",
-            email: currentUser.email,
-            id: recordId
-          })
+          body: JSON.stringify({ action: "delete", email: currentUser.email, id: recordId })
         });
-        statusEl.innerText = "✅ 已成功刪除該筆資料！";
-        statusEl.style.color = "#16a34a";
       } catch (err) {
-        statusEl.innerText = "❌ 試算表刪除失敗";
-        statusEl.style.color = "#dc2626";
+        console.error(err);
       }
     }
 
     function renderList() {
       const listEl = document.getElementById("expenseList");
+      const filter = (document.getElementById("searchInput")?.value || "").toLowerCase().trim();
       let total = 0;
-      listEl.innerHTML = records.length ? "" : `<div style="text-align:center; color:#64748b; font-size:13px; padding:20px;">試算表中尚無交易紀錄</div>`;
 
-      records.forEach(r => {
+      const filtered = records.filter(r => (r.title || "").toLowerCase().includes(filter) || (r.itemsSummary || "").toLowerCase().includes(filter));
+      listEl.innerHTML = filtered.length ? "" : `<div style="text-align:center; color:#64748b; font-size:13px; padding:20px;">無交易紀錄</div>`;
+
+      filtered.forEach(r => {
         total += Number(r.total) || 0;
         const div = document.createElement("div");
         div.className = "record-card";
-        const summaryText = (r.itemsSummary || "").split('; ').join('\n');
-
         div.innerHTML = `
           <div class="record-header">
             <span>${r.title}</span>
             <span style="font-size:12px; color:#64748b;">${String(r.dateTime).replace('T', ' ')}</span>
           </div>
-          <div class="record-details">${summaryText}</div>
+          <div class="record-details">${(r.itemsSummary || "").split('; ').join('\n')}</div>
           <div class="record-footer">
             <span>總計: $${r.total}</span>
             <button class="btn-card-delete" onclick="confirmAndDelete('${r.id}', '${r.title}', ${r.total})">🗑️ 刪除</button>
@@ -312,14 +439,6 @@
         listEl.appendChild(div);
       });
       document.getElementById("totalAmount").innerText = total.toLocaleString();
-    }
-
-    function handleLogout() {
-      localStorage.removeItem("expense_google_user");
-      currentUser = null;
-      document.getElementById("appSection").style.display = "none";
-      document.getElementById("loginSection").style.display = "block";
-      google.accounts.id.renderButton(document.querySelector(".g_id_signin"), { theme: "outline", size: "large" });
     }
   </script>
 </body>
