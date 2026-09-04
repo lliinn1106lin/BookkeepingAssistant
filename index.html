@@ -15,6 +15,7 @@
       --text-sub: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
+      --danger-hover: #dc2626;
     }
 
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -43,7 +44,9 @@
     .record-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fff; }
     .record-header { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; border-bottom: 1px dashed var(--border); padding-bottom: 6px; margin-bottom: 6px; }
     .record-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; white-space: pre-line; }
-    .record-footer { display: flex; justify-content: space-between; font-weight: 700; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+    .record-footer { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+    .btn-card-delete { background: #fee2e2; border: 1px solid #fca5a5; color: var(--danger); border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+    .btn-card-delete:hover { background: var(--danger); color: #fff; }
   </style>
 </head>
 <body>
@@ -136,11 +139,9 @@
       document.getElementById("userAvatar").src = currentUser.picture;
 
       resetForm();
-      // 登入後直接從 Google 試算表拉取最新歷史紀錄
       fetchRecordsFromSheets();
     }
 
-    // 從 Google 試算表撈取資料
     async function fetchRecordsFromSheets() {
       const statusEl = document.getElementById("syncStatus");
       statusEl.innerText = "⏳ 正在從試算表讀取資料...";
@@ -238,11 +239,43 @@
           })
         });
 
-        // 寫入完成後，稍等 1 秒從試算表重新抓取最新資料
-        setTimeout(fetchRecordsFromSheets, 1000);
+        setTimeout(fetchRecordsFromSheets, 1200);
         resetForm();
       } catch (err) {
         statusEl.innerText = "❌ 寫入失敗";
+        statusEl.style.color = "#dc2626";
+      }
+    }
+
+    // 刪除紀錄（含二次確認與試算表同步）
+    async function confirmAndDelete(recordId, title, total) {
+      const isConfirmed = confirm(`確定要刪除「${title} ($${total})」這筆紀錄嗎？\n\n此操作會同時從雲端試算表中移除，無法復原！`);
+      if (!isConfirmed) return;
+
+      const statusEl = document.getElementById("syncStatus");
+      statusEl.innerText = "⏳ 正在從試算表刪除中...";
+      statusEl.style.color = "#4f46e5";
+
+      // 1. 先從前端暫存中移除並即刻更新畫面
+      records = records.filter(r => String(r.id) !== String(recordId));
+      renderList();
+
+      // 2. 同步發送刪除命令到 Google 試算表
+      try {
+        await fetch(GAS_API_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "delete",
+            email: currentUser.email,
+            id: recordId
+          })
+        });
+        statusEl.innerText = "✅ 已成功刪除該筆資料！";
+        statusEl.style.color = "#16a34a";
+      } catch (err) {
+        statusEl.innerText = "❌ 試算表刪除失敗";
         statusEl.style.color = "#dc2626";
       }
     }
@@ -256,8 +289,6 @@
         total += Number(r.total) || 0;
         const div = document.createElement("div");
         div.className = "record-card";
-        
-        // 解析明細文字呈現
         const summaryText = (r.itemsSummary || "").split('; ').join('\n');
 
         div.innerHTML = `
@@ -266,7 +297,10 @@
             <span style="font-size:12px; color:#64748b;">${String(r.dateTime).replace('T', ' ')}</span>
           </div>
           <div class="record-details">${summaryText}</div>
-          <div class="record-footer"><span>總計</span><span>$${r.total}</span></div>
+          <div class="record-footer">
+            <span>總計: $${r.total}</span>
+            <button class="btn-card-delete" onclick="confirmAndDelete('${r.id}', '${r.title}', ${r.total})">🗑️ 刪除</button>
+          </div>
         `;
         listEl.appendChild(div);
       });
