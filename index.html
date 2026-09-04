@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>記帳小幫手</title>
 
-  <!-- PWA 與手機桌面設定 -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +12,6 @@
   <meta name="apple-mobile-web-app-title" content="記帳小幫手">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2331/2331941.png">
 
-  <!-- 載入 Firebase SDK (相容版) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
@@ -49,6 +47,9 @@
     .btn-anon { background: #f8fafc; border: 1px dashed #94a3b8; color: #475569; }
     .btn-anon:hover { background-color: #f1f5f9; }
 
+    .forgot-link { text-align: right; font-size: 12px; color: var(--primary); text-decoration: none; cursor: pointer; margin-top: -4px; margin-bottom: 4px; }
+    .forgot-link:hover { text-decoration: underline; }
+
     .divider { display: flex; align-items: center; text-align: center; margin: 16px 0; color: var(--text-sub); font-size: 12px; }
     .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
     .divider:not(:empty)::before { margin-right: .5em; }
@@ -60,7 +61,9 @@
     .user-info img { width: 40px; height: 40px; border-radius: 50%; }
     .user-info .name { font-weight: 600; font-size: 15px; }
     .user-info .email { font-size: 12px; color: var(--text-sub); }
-    .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-sub); padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    .header-actions { display: flex; gap: 6px; }
+    .btn-header { background: transparent; border: 1px solid var(--border); color: var(--text-sub); padding: 5px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+    .btn-header:hover { background: #f1f5f9; }
     
     .link-status-bar { background: #f1f5f9; padding: 10px 12px; border-radius: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
     .link-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -102,6 +105,7 @@
       <form class="auth-form" onsubmit="handleEmailAuth(event)">
         <input type="email" id="authEmail" placeholder="電子信箱 (Email)" required>
         <input type="password" id="authPassword" placeholder="密碼 (至少 6 個字元)" minlength="6" required>
+        <a class="forgot-link" id="btnForgotPwd" onclick="handleForgotPassword()">忘記密碼？</a>
         <button type="submit" class="btn-submit" id="btnAuthSubmit">立即登入</button>
       </form>
 
@@ -132,10 +136,12 @@
             <div id="userEmail" class="email"></div>
           </div>
         </div>
-        <button class="btn-logout" onclick="handleLogout()">登出</button>
+        <div class="header-actions">
+          <button class="btn-header" id="btnChangePassword" style="display:none;" onclick="handleChangePasswordLoggedIn()">改密碼</button>
+          <button class="btn-header" onclick="handleLogout()">登出</button>
+        </div>
       </div>
 
-      <!-- 多方式互綁控制列 -->
       <div class="link-status-bar" id="linkStatusBar">
         <div id="linkInfoText">載入綁定狀態...</div>
         <div class="link-buttons" id="linkButtonsContainer"></div>
@@ -197,6 +203,15 @@
       return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
 
+    // 取得 Google 試算表的分頁唯一代號（訪客使用 uid，正式用戶使用 email）
+    function getUserSheetIdentifier() {
+      if (!currentUser) return "default";
+      if (currentUser.isAnonymous) {
+        return `訪客_${currentUser.uid.slice(0, 8)}`;
+      }
+      return currentUser.email || currentUser.uid;
+    }
+
     auth.onAuthStateChanged((user) => {
       if (user) {
         currentUser = user;
@@ -204,13 +219,18 @@
         document.getElementById("appSection").style.display = "block";
         
         if (user.isAnonymous) {
-          document.getElementById("userName").innerText = "訪客用戶";
-          document.getElementById("userEmail").innerText = "點擊下方按鈕可升級綁定正式帳號";
+          document.getElementById("userName").innerText = `訪客 (${user.uid.slice(0, 6)})`;
+          document.getElementById("userEmail").innerText = "點擊下方可升級為正式帳號";
           document.getElementById("userAvatar").src = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+          document.getElementById("btnChangePassword").style.display = "none";
         } else {
           document.getElementById("userName").innerText = user.displayName || user.email?.split('@')[0] || "使用者";
           document.getElementById("userEmail").innerText = user.email || "(未公開信箱)";
           if (user.photoURL) document.getElementById("userAvatar").src = user.photoURL;
+
+          // 若帳號已啟用密碼登入，顯示改密碼按鈕
+          const hasPassword = user.providerData.some(p => p.providerId === "password");
+          document.getElementById("btnChangePassword").style.display = hasPassword ? "inline-block" : "none";
         }
 
         updateLinkStatusBar();
@@ -234,7 +254,7 @@
       btnContainer.innerHTML = "";
 
       if (currentUser.isAnonymous) {
-        infoText.innerHTML = "⚠️ <b>目前為暫時性訪客帳號</b>（升級綁定後可永久保存資料）：";
+        infoText.innerHTML = "⚠️ <b>目前為訪客試用狀態</b>（資料已存雲端，升級後可永久保存）：";
       } else {
         const activeList = [];
         if (isGoogle) activeList.push("Google");
@@ -260,7 +280,7 @@
       if (!isPassword) {
         const btn = document.createElement("button");
         btn.className = "btn-link-action";
-        btn.innerText = currentUser.isAnonymous ? "✉️ 綁定 Email / 密碼" : "🔑 設定密碼登入";
+        btn.innerText = currentUser.isAnonymous ? "✉️ 設定 Email / 密碼" : "🔑 設定密碼登入";
         btn.onclick = linkPassword;
         btnContainer.appendChild(btn);
       }
@@ -269,7 +289,7 @@
     async function linkProvider(provider, providerName) {
       try {
         await currentUser.linkWithPopup(provider);
-        alert(`🎉 成功綁定 ${providerName}！`);
+        alert(`🎉 成功綁定 ${providerName}！下次可直接以該方式登入。`);
         updateLinkStatusBar();
       } catch (err) {
         alert("綁定失敗: " + err.message);
@@ -279,7 +299,7 @@
     async function linkPassword() {
       let email = currentUser.email;
       if (!email) {
-        email = prompt("請輸入欲綁定的電子信箱 (Email)：");
+        email = prompt("請輸入要綁定的電子信箱 (Email)：");
         if (!email) return;
       }
       const newPassword = prompt("請設定登入密碼（至少 6 碼）：");
@@ -290,10 +310,42 @@
       const credential = firebase.auth.EmailAuthProvider.credential(email.trim(), newPassword);
       try {
         await currentUser.linkWithCredential(credential);
-        alert("🎉 帳號密碼綁定成功！下次可直接用此 Email 與密碼登入！");
+        alert("🎉 帳號密碼綁定成功！下次可直接用此信箱與密碼登入！");
         updateLinkStatusBar();
       } catch (err) {
         alert("設定失敗: " + err.message);
+      }
+    }
+
+    // 忘記密碼（寄送重設信）
+    async function handleForgotPassword() {
+      const email = document.getElementById("authEmail").value.trim() || prompt("請輸入您的註冊電子信箱 (Email)：");
+      if (!email) return;
+      try {
+        await auth.sendPasswordResetEmail(email.trim());
+        alert(`重設密碼信件已發送至 ${email}，請至收件匣確認！`);
+      } catch (err) {
+        alert("發送失敗: " + err.message);
+      }
+    }
+
+    // 已登入狀態下變更密碼
+    async function handleChangePasswordLoggedIn() {
+      const newPassword = prompt("請輸入全新密碼（至少 6 碼）：");
+      if (!newPassword || newPassword.length < 6) {
+        alert("密碼長度至少需 6 個字元！");
+        return;
+      }
+      try {
+        await currentUser.updatePassword(newPassword);
+        alert("🎉 密碼已成功更新！");
+      } catch (err) {
+        if (err.code === "auth/requires-recent-login") {
+          alert("基於安全要求，請重新登入後再修改密碼！");
+          auth.signOut();
+        } else {
+          alert("更新失敗: " + err.message);
+        }
       }
     }
 
@@ -302,6 +354,7 @@
       document.getElementById("tabLogin").classList.toggle("active", mode === "login");
       document.getElementById("tabRegister").classList.toggle("active", mode === "register");
       document.getElementById("btnAuthSubmit").innerText = mode === "login" ? "立即登入" : "註冊並啟用";
+      document.getElementById("btnForgotPwd").style.display = mode === "login" ? "block" : "none";
     }
 
     async function handleEmailAuth(e) {
@@ -317,7 +370,7 @@
           await auth.signInWithEmailAndPassword(email, password);
         }
       } catch (err) {
-        alert("操作失敗: " + err.message);
+        alert("登入/註冊失敗: " + err.message);
       }
     }
 
@@ -337,6 +390,7 @@
       }
     }
 
+    // 訪客登入
     async function handleAnonymousLogin() {
       try {
         await auth.signInAnonymously();
@@ -355,7 +409,7 @@
       statusEl.style.color = "#4f46e5";
 
       try {
-        const identifier = currentUser.email || currentUser.uid;
+        const identifier = getUserSheetIdentifier();
         const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(identifier)}`);
         const result = await res.json();
         if (result.status === "success") {
@@ -432,7 +486,7 @@
       statusEl.style.color = "#4f46e5";
 
       try {
-        const identifier = currentUser.email || currentUser.uid;
+        const identifier = getUserSheetIdentifier();
         await fetch(GAS_API_URL, {
           method: "POST",
           mode: "no-cors",
@@ -453,7 +507,7 @@
       renderList();
 
       try {
-        const identifier = currentUser.email || currentUser.uid;
+        const identifier = getUserSheetIdentifier();
         await fetch(GAS_API_URL, {
           method: "POST",
           mode: "no-cors",
