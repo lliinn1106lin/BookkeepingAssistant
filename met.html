@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>記帳小幫手</title>
+  <title>記帳小幫手 (E2EE 加密版)</title>
 
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
@@ -68,6 +68,9 @@
 
     .verify-banner { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 12px; font-size: 12px; color: #92400e; display: none; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .btn-resend-verify { background: #fff; border: 1px solid #d97706; color: #b45309; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: 600; }
+
+    .crypto-banner { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #065f46; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .btn-crypto-reset { background: #fff; border: 1px solid #10b981; color: #059669; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: 600; }
 
     .summary-card { background: #eef2ff; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 16px; }
     .summary-amount { font-size: 28px; font-weight: 700; color: var(--primary); }
@@ -142,6 +145,12 @@
         </div>
       </div>
 
+      <!-- 端對端加密狀態橫幅 -->
+      <div class="crypto-banner" id="cryptoBanner">
+        <span>🔐 <b>端對端加密（E2EE）已啟用</b>（金鑰安全存於本機）</span>
+        <button class="btn-crypto-reset" onclick="promptForPassphrase(true)">更換金鑰</button>
+      </div>
+
       <!-- Email 未驗證提示橫幅 -->
       <div class="verify-banner" id="verifyBanner">
         <span>⚠️ 信箱尚未完成驗證</span>
@@ -172,7 +181,7 @@
         <div style="font-size: 13px; font-weight: 600;">品項明細：</div>
         <div id="itemsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
         <button type="button" class="btn-add-item" onclick="addItemRow()">+ 新增明細品項</button>
-        <button type="submit" class="btn-submit" id="btnSaveSubmit">儲存並同步至試算表</button>
+        <button type="submit" class="btn-submit" id="btnSaveSubmit">🔒 加密並同步至試算表</button>
       </form>
 
       <div class="search-box">
@@ -185,7 +194,7 @@
   </div>
 
   <script>
-    // 更新後的 Firebase 配置
+    // Firebase 配置
     const firebaseConfig = {
       apiKey: "AIzaSyBy5fDtIj5nFSU8x123W8Fu0bHu5DqFhWk",
       authDomain: "ru8auru5l.firebaseapp.com",
@@ -198,16 +207,115 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
-    // 更新後的 Apps Script API 網址
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwKlSDbZVGM7YP3cMmCKDxZ0JQ7jc1OKX5KXFW3Aqq-uNrQ0kRK92lueOzTviYs3KE2UQ/exec";
 
     let currentUser = null;
     let records = [];
     let currentAuthMode = "login";
     let isSaving = false;
+    let e2eeCryptoKey = null; // 儲存衍生出的 AES-GCM 金鑰物件
 
     const defaultCategories = ["🍔 餐飲", "🚗 交通", "🎮 娛樂", "🛒 日常", "📦 其他", "➕ 自訂其他..."];
 
+    // -------------------------------------------------------------
+    // Web Crypto API：端對端加密核心模組 (PBKDF2 + AES-GCM 256-bit)
+    // -------------------------------------------------------------
+    async function deriveKeyFromPassphrase(passphrase, saltText) {
+      const enc = new TextEncoder();
+      const keyMaterial = await window.crypto.subtle.importKey(
+        "raw",
+        enc.encode(passphrase),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+
+      return await window.crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: enc.encode(saltText),
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function encryptPayload(dataObj) {
+      if (!e2eeCryptoKey) throw new Error("尚未設定加密金鑰！");
+      const enc = new TextEncoder();
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const plaintext = enc.encode(JSON.stringify(dataObj));
+
+      const ciphertextBuffer = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        e2eeCryptoKey,
+        plaintext
+      );
+
+      const ciphertextArray = Array.from(new Uint8Array(ciphertextBuffer));
+      const ivArray = Array.from(iv);
+
+      // 回傳 Base64 格式的包裝物件
+      return "E2EE:" + btoa(JSON.stringify({
+        iv: btoa(String.fromCharCode.apply(null, ivArray)),
+        data: btoa(String.fromCharCode.apply(null, ciphertextArray))
+      }));
+    }
+
+    async function decryptPayload(cipherString) {
+      if (!cipherString || !cipherString.startsWith("E2EE:")) return null;
+      if (!e2eeCryptoKey) throw new Error("解密金鑰遺失");
+
+      try {
+        const payload = JSON.parse(atob(cipherString.replace("E2EE:", "")));
+        const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
+        const data = Uint8Array.from(atob(payload.data), c => c.charCodeAt(0));
+
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: iv },
+          e2eeCryptoKey,
+          data
+        );
+
+        const dec = new TextDecoder();
+        return JSON.parse(dec.decode(decryptedBuffer));
+      } catch (err) {
+        console.warn("解密失敗（可能是舊明文資料或密碼不符）：", err);
+        return null;
+      }
+    }
+
+    async function ensureEncryptionKey() {
+      const storageKey = `e2ee_pass_${currentUser.uid}`;
+      let passphrase = sessionStorage.getItem(storageKey);
+
+      if (!passphrase) {
+        passphrase = prompt("🔐 請設定您的【端對端加密安全碼】\n（請務必記牢！此密碼不會上傳至伺服器，若遺失將無法解讀資料）：");
+        if (!passphrase) passphrase = currentUser.uid; // 若取消則預設以 UID 做本地保護
+        sessionStorage.setItem(storageKey, passphrase);
+      }
+
+      e2eeCryptoKey = await deriveKeyFromPassphrase(passphrase, currentUser.uid);
+    }
+
+    async function promptForPassphrase(forceReset = false) {
+      const storageKey = `e2ee_pass_${currentUser.uid}`;
+      const newPass = prompt("請輸入新的端對端加密金鑰：");
+      if (newPass) {
+        sessionStorage.setItem(storageKey, newPass);
+        e2eeCryptoKey = await deriveKeyFromPassphrase(newPass, currentUser.uid);
+        alert("🎉 金鑰更新完成，正在重新嘗試解密資料...");
+        fetchRecordsFromSheets();
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 業務邏輯與流程
+    // -------------------------------------------------------------
     function getCurrentLocalDateTime() {
       const now = new Date();
       return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -221,7 +329,7 @@
       return currentUser.email || currentUser.uid;
     }
 
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(async (user) => {
       if (user) {
         currentUser = user;
         document.getElementById("authSection").style.display = "none";
@@ -250,9 +358,13 @@
 
         updateLinkStatusBar();
         resetForm();
+
+        // 登入後初始化端對端金鑰並拉取資料
+        await ensureEncryptionKey();
         fetchRecordsFromSheets();
       } else {
         currentUser = null;
+        e2eeCryptoKey = null;
         document.getElementById("appSection").style.display = "none";
         document.getElementById("authSection").style.display = "block";
       }
@@ -422,22 +534,50 @@
     }
 
     function handleLogout() {
+      sessionStorage.removeItem(`e2ee_pass_${currentUser?.uid}`);
       auth.signOut();
     }
 
+    // 核心資料讀取與本地端解密
     function fetchRecordsFromSheets() {
       const statusEl = document.getElementById("syncStatus");
-      statusEl.innerText = "⏳ 正在從試算表讀取資料...";
+      statusEl.innerText = "⏳ 正在讀取並解密試算表資料...";
       statusEl.style.color = "#4f46e5";
 
       const identifier = getUserSheetIdentifier();
       const scriptUrl = `${GAS_API_URL}?email=${encodeURIComponent(identifier)}&callback=handleSheetResponse&_=${Date.now()}`;
 
-      window.handleSheetResponse = function(result) {
+      window.handleSheetResponse = async function(result) {
         if (result && result.status === "success") {
-          records = result.records || [];
+          const rawRecords = result.records || [];
+          
+          // 本機解密管線
+          const decryptedRecords = await Promise.all(rawRecords.map(async (r) => {
+            if (r.title && r.title.startsWith("E2EE:")) {
+              const decrypted = await decryptPayload(r.title);
+              if (decrypted) {
+                return {
+                  ...r,
+                  title: decrypted.title,
+                  items: decrypted.items,
+                  itemsSummary: decrypted.itemsSummary,
+                  isEncrypted: true
+                };
+              } else {
+                return {
+                  ...r,
+                  title: "🔒 [無法解密 - 金鑰不符]",
+                  itemsSummary: "無法解讀明細",
+                  isDecryptionFailed: true
+                };
+              }
+            }
+            return r; // 相容未加密的舊資料
+          }));
+
+          records = decryptedRecords;
           renderList();
-          statusEl.innerText = "✅ 已與試算表同步";
+          statusEl.innerText = "✅ 已安全同步與解密";
           statusEl.style.color = "#16a34a";
         } else {
           statusEl.innerText = "⚠️ 讀取試算表失敗";
@@ -495,6 +635,7 @@
       }
     }
 
+    // 儲存：先在本地加密後再上傳
     async function saveTransaction(e) {
       e.preventDefault();
       if (isSaving) return;
@@ -516,14 +657,30 @@
       });
 
       const itemsSummary = items.map(i => `${i.name} (${i.category}): $${i.amount}`).join('; ');
-      const newRecord = { id: Date.now(), dateTime, title, items, itemsSummary, total };
+
+      // 將敏感內容打包進加密負載
+      const encryptedPackage = await encryptPayload({
+        title: title,
+        items: items,
+        itemsSummary: itemsSummary
+      });
+
+      // 傳送給 Google 試算表的資料（名稱欄位放密文，摘要以掩碼處理）
+      const recordForSheet = {
+        id: Date.now(),
+        dateTime,
+        title: encryptedPackage,
+        items: [],
+        itemsSummary: "[🔒 E2EE 加密資料]",
+        total
+      };
 
       isSaving = true;
       btnSave.disabled = true;
-      btnSave.innerText = "⏳ 正在同步至試算表...";
+      btnSave.innerText = "⏳ 正在加密同步中...";
 
       const statusEl = document.getElementById("syncStatus");
-      statusEl.innerText = "⏳ 正在同步寫入試算表...";
+      statusEl.innerText = "⏳ 正在將密文寫入試算表...";
       statusEl.style.color = "#4f46e5";
 
       try {
@@ -532,21 +689,21 @@
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "sync", email: identifier, records: [newRecord] })
+          body: JSON.stringify({ action: "sync", email: identifier, records: [recordForSheet] })
         });
         resetForm();
         setTimeout(() => {
           fetchRecordsFromSheets();
           isSaving = false;
           btnSave.disabled = false;
-          btnSave.innerText = "儲存並同步至試算表";
+          btnSave.innerText = "🔒 加密並同步至試算表";
         }, 1500);
       } catch (err) {
         statusEl.innerText = "❌ 寫入失敗";
         statusEl.style.color = "#dc2626";
         isSaving = false;
         btnSave.disabled = false;
-        btnSave.innerText = "儲存並同步至試算表";
+        btnSave.innerText = "🔒 加密並同步至試算表";
       }
     }
 
@@ -582,13 +739,13 @@
         div.className = "record-card";
         div.innerHTML = `
           <div class="record-header">
-            <span>${r.title}</span>
+            <span>${r.isEncrypted ? '🔒 ' : ''}${r.title}</span>
             <span style="font-size:12px; color:#64748b;">${String(r.dateTime).replace('T', ' ')}</span>
           </div>
           <div class="record-details">${(r.itemsSummary || "").split('; ').join('\n')}</div>
           <div class="record-footer">
             <span>總計: $${r.total}</span>
-            <button class="btn-card-delete" onclick="confirmAndDelete('${r.id}', '${r.title}', ${r.total})">🗑️ 刪除</button>
+            <button class="btn-card-delete" onclick="confirmAndDelete('${r.id}', '${r.title.replace(/'/g, "\\'")}', ${r.total})">🗑️ 刪除</button>
           </div>
         `;
         listEl.appendChild(div);
