@@ -262,7 +262,8 @@
   </div>
 
   <script>
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzYo7S7rkkLdEPZx9DxRi3TARmibSIjOvb5Rx1dIVWKIR8J0GfRDbRLvXQ1hRkVMq1q/exec";
+    // 這裡已經換上你剛給的新試算表 GAS 網址！
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwKlSDbZVGM7YP3cMmCKDxZ0JQ7jc1OKX5KXFW3Aqq-uNrQ0kRK92lueOzTviYs3KE2UQ/exec";
 
     let currentUser = null;
     let masterKey = null;
@@ -276,7 +277,6 @@
       return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
 
-    // 1. Google 登入
     function handleCredentialResponse(response) {
       const base64Url = response.credential.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -288,7 +288,6 @@
       checkSecuritySetup();
     }
 
-    // 2. 自訂帳號 / Email 登入
     function handleCustomLogin(e) {
       e.preventDefault();
       const identifier = document.getElementById("customUserIdentifier").value.trim();
@@ -304,7 +303,6 @@
       checkSecuritySetup();
     }
 
-    // 3. 訪客本機模式登入
     function handleGuestLogin() {
       currentUser = {
         name: "訪客 (本機離線)",
@@ -551,7 +549,6 @@
       renderList();
       resetForm();
 
-      // 如果是純訪客模式，不送上雲端
       if (currentUser.type === "guest") {
         const statusEl = document.getElementById("syncStatus");
         statusEl.innerText = "🔒 訪客模式：資料已純本機加密保存（未上傳雲端）";
@@ -559,7 +556,7 @@
         return;
       }
 
-      // 端對端加密雲端同步
+      // 端對端加密寫入你的新試算表
       const encryptedPayload = [{
         id: newRecord.id,
         dateTime: newRecord.dateTime,
@@ -582,7 +579,7 @@
 
     async function syncToGoogleSheets(encryptedData) {
       const statusEl = document.getElementById("syncStatus");
-      statusEl.innerText = "⏳ 正在端對端加密同步至 Google 試算表...";
+      statusEl.innerText = "⏳ 正在端對端加密同步至新 Google 試算表...";
       statusEl.style.color = "#4f46e5";
 
       try {
@@ -596,7 +593,7 @@
             records: encryptedData
           })
         });
-        statusEl.innerText = "🔒 資料已全數加密寫入試算表（創作者無法檢視）！";
+        statusEl.innerText = "🔒 資料已全數加密寫入新試算表（創作者無法檢視）！";
         statusEl.style.color = "#16a34a";
       } catch (err) {
         statusEl.innerText = "❌ 同步失敗，資料已安全儲存於本機";
