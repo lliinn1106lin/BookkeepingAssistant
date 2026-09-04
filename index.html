@@ -167,7 +167,6 @@
       border-color: var(--primary);
     }
 
-    /* 明細品項清單 */
     .items-container {
       display: flex;
       flex-direction: column;
@@ -217,7 +216,6 @@
       background: var(--primary-hover);
     }
 
-    /* 歷史紀錄 */
     .list-header {
       font-size: 15px;
       font-weight: 600;
@@ -305,7 +303,6 @@
 <body>
 
   <div class="container">
-    <!-- 登入區塊 -->
     <div id="loginSection">
       <h2>記帳小幫手</h2>
       <p>登入 Google 帳戶以同步您的個人記帳資料</p>
@@ -319,7 +316,6 @@
       </div>
     </div>
 
-    <!-- 記帳主介面 -->
     <div id="appSection">
       <div class="header-bar">
         <div class="user-info">
@@ -332,31 +328,25 @@
         <button class="btn-logout" onclick="handleLogout()">登出</button>
       </div>
 
-      <!-- 總額看板 -->
       <div class="summary-card">
         <div class="summary-title">總累計支出</div>
         <div class="summary-amount">$ <span id="totalAmount">0</span></div>
       </div>
 
-      <!-- 記帳表單 -->
       <form id="expenseForm" class="form-group" onsubmit="saveTransaction(event)">
         <div class="input-row">
-          <!-- 日曆選擇器 -->
-          <input type="date" id="txDate" required style="flex: 1;">
-          <!-- 交易主說明 (例如：全聯採購、晚餐) -->
-          <input type="text" id="txTitle" placeholder="交易名稱 (如: 晚餐、好市多)" required style="flex: 2;">
+          <input type="datetime-local" id="txDateTime" required style="flex: 1.3;">
+          <input type="text" id="txTitle" placeholder="交易名稱 (如: 午餐、超商)" required style="flex: 1.7;">
         </div>
 
         <div style="font-size: 13px; font-weight: 600; margin-top: 4px;">品項明細：</div>
         
-        <!-- 動態品項清單容器 -->
         <div id="itemsContainer" class="items-container"></div>
 
         <button type="button" class="btn-add-item" onclick="addItemRow()">+ 新增明細品項</button>
         <button type="submit" class="btn-submit">儲存此筆交易</button>
       </form>
 
-      <!-- 歷史紀錄 -->
       <div class="list-header">消費明細總覽</div>
       <div id="expenseList" class="expense-list"></div>
     </div>
@@ -366,14 +356,26 @@
     let currentUser = null;
     let records = [];
 
-    // 常用預設類別清單
     const defaultCategories = ["🍔 餐飲", "🚗 交通", "🎮 娛樂", "🛒 日常", "📦 其他", "➕ 自訂其他..."];
 
-    window.onload = function() {
-      // 預設日期為當天 (YYYY-MM-DD)
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById("txDate").value = today;
+    // 取得當前本地時間字串 (格式: YYYY-MM-DDTHH:mm)
+    function getCurrentLocalDateTime() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
 
+    // 格式化顯示時間為易讀格式 (例如: 2026/09/04 17:30)
+    function formatDisplayDateTime(dateTimeStr) {
+      if (!dateTimeStr) return "";
+      return dateTimeStr.replace("T", " ");
+    }
+
+    window.onload = function() {
       const savedUser = localStorage.getItem("expense_google_user");
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -405,19 +407,18 @@
       const savedRecords = localStorage.getItem(userKey);
       records = savedRecords ? JSON.parse(savedRecords) : [];
       
-      // 表單初始先塞一條明細
       resetForm();
       renderList();
     }
 
-    // 重設表單並初始化一條明細
     function resetForm() {
+      // 自動設為當前精確時間
+      document.getElementById("txDateTime").value = getCurrentLocalDateTime();
       document.getElementById("txTitle").value = "";
       document.getElementById("itemsContainer").innerHTML = "";
       addItemRow();
     }
 
-    // 動態新增單個品項
     function addItemRow() {
       const container = document.getElementById("itemsContainer");
       const div = document.createElement("div");
@@ -440,7 +441,6 @@
       container.appendChild(div);
     }
 
-    // 刪除品項（至少保留一項）
     function removeItemRow(button) {
       const container = document.getElementById("itemsContainer");
       if (container.children.length > 1) {
@@ -450,7 +450,6 @@
       }
     }
 
-    // 判斷是否選了「自訂其他」
     function checkCustomCategory(select) {
       const customInput = select.parentElement.querySelector(".item-custom-category");
       if (select.value === "➕ 自訂其他...") {
@@ -463,10 +462,9 @@
       }
     }
 
-    // 儲存整筆交易（包含日期、標題、所有品項）
     function saveTransaction(e) {
       e.preventDefault();
-      const date = document.getElementById("txDate").value;
+      const dateTime = document.getElementById("txDateTime").value;
       const title = document.getElementById("txTitle").value.trim();
 
       const itemCards = document.querySelectorAll(".sub-item-card");
@@ -479,7 +477,6 @@
         const categorySelect = card.querySelector(".item-category").value;
         const customCategory = card.querySelector(".item-custom-category").value.trim();
 
-        // 判定自訂類型或選定類型
         const finalCategory = (categorySelect === "➕ 自訂其他...") 
           ? (customCategory ? `🏷️ ${customCategory}` : "📦 其他") 
           : categorySelect;
@@ -490,7 +487,7 @@
 
       const newRecord = {
         id: Date.now(),
-        date,
+        dateTime,
         title,
         items,
         total
@@ -529,7 +526,6 @@
           const card = document.createElement("div");
           card.className = "record-card";
 
-          // 組合內部明細清單
           const itemsHtml = rec.items.map(item => `
             <div class="sub-item-line">
               <span>${item.name} <small>(${item.category})</small></span>
@@ -540,7 +536,7 @@
           card.innerHTML = `
             <div class="record-header">
               <span class="record-title">${rec.title}</span>
-              <span class="record-date">${rec.date}</span>
+              <span class="record-date">${formatDisplayDateTime(rec.dateTime)}</span>
             </div>
             <div>${itemsHtml}</div>
             <div class="record-footer">
