@@ -185,20 +185,20 @@
   </div>
 
   <script>
-    // 已更新為精確大小寫的 API Key 與 ru8auru5l 設定
+    // 更新後的 Firebase 配置
     const firebaseConfig = {
       apiKey: "AIzaSyBy5fDtIj5nFSU8x123W8Fu0bHu5DqFhWk",
       authDomain: "ru8auru5l.firebaseapp.com",
       projectId: "ru8auru5l",
       storageBucket: "ru8auru5l.firebasestorage.app",
       messagingSenderId: "273717450039",
-      appId: "1:273717450039:web:1c38006220322a6a70b6b2"
+      appId: "1:273717450039:web:ff64378eaca2050670b6b2"
     };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
-    // 已綁定最新 Google Apps Script 部署網址
+    // 更新後的 Apps Script API 網址
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwKlSDbZVGM7YP3cMmCKDxZ0JQ7jc1OKX5KXFW3Aqq-uNrQ0kRK92lueOzTviYs3KE2UQ/exec";
 
     let currentUser = null;
@@ -499,19 +499,13 @@
       e.preventDefault();
       if (isSaving) return;
 
-      const subCards = document.querySelectorAll(".sub-item-card");
-      if (subCards.length === 0) {
-        alert("請至少新增一項消費品項！");
-        return;
-      }
-
       const btnSave = document.getElementById("btnSaveSubmit");
       const dateTime = document.getElementById("txDateTime").value;
       const title = document.getElementById("txTitle").value.trim();
 
       const items = [];
       let total = 0;
-      subCards.forEach(card => {
+      document.querySelectorAll(".sub-item-card").forEach(card => {
         const name = card.querySelector(".item-name").value.trim();
         const amount = Number(card.querySelector(".item-amount").value);
         const sel = card.querySelector(".item-category").value;
