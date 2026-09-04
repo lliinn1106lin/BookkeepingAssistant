@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="記帳小幫手">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2331/2331941.png">
 
-  <!-- 載入 Firebase SDK (相容版，免打包直接可用) -->
+  <!-- 載入 Firebase SDK (相容版) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
@@ -40,7 +40,13 @@
     .auth-tab { flex: 1; padding: 10px; border: none; background: none; font-size: 15px; font-weight: 600; color: var(--text-sub); cursor: pointer; }
     .auth-tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
     .auth-form { display: flex; flex-direction: column; gap: 12px; }
-    .btn-google { background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; }
+    
+    .social-btn-group { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .btn-oauth { background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; transition: background-color 0.2s; }
+    .btn-oauth:hover { background-color: #f1f5f9; }
+    .btn-github { background: #24292f; color: #ffffff; border-color: #24292f; }
+    .btn-github:hover { background-color: #1a1e22; }
+
     .divider { display: flex; align-items: center; text-align: center; margin: 16px 0; color: var(--text-sub); font-size: 12px; }
     .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
     .divider:not(:empty)::before { margin-right: .5em; }
@@ -54,11 +60,11 @@
     .user-info .email { font-size: 12px; color: var(--text-sub); }
     .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-sub); padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
     
-    .link-status-bar { background: #f1f5f9; padding: 8px 12px; border-radius: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .link-status-bar { background: #f1f5f9; padding: 10px 12px; border-radius: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .link-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
     .btn-link-action { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 11px; font-weight: 600; }
     .btn-link-action:hover { background: #e2e8f0; }
 
-    .verify-banner { background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
     .summary-card { background: #eef2ff; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 16px; }
     .summary-amount { font-size: 28px; font-weight: 700; color: var(--primary); }
     .sync-bar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 16px; color: var(--text-sub); }
@@ -84,7 +90,7 @@
   <div class="container">
     <div id="authSection">
       <h2>記帳小幫手</h2>
-      <p style="color: var(--text-sub); font-size: 14px; margin-bottom: 20px;">支援 Email 與 Google 帳號互綁同步</p>
+      <p style="color: var(--text-sub); font-size: 14px; margin-bottom: 20px;">支援 Email、Google 與 GitHub 帳號互綁同步</p>
       
       <div class="auth-tabs">
         <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">登入</button>
@@ -98,10 +104,18 @@
       </form>
 
       <div class="divider">或使用快速登入</div>
-      <button class="btn-google" type="button" onclick="handleGoogleLogin()">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
-        以 Google 帳戶繼續
-      </button>
+      <div class="social-btn-group">
+        <button class="btn-oauth" type="button" onclick="handleGoogleLogin()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="Google">
+          以 Google 帳戶繼續
+        </button>
+        <button class="btn-oauth btn-github" type="button" onclick="handleGitHubLogin()">
+          <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+          </svg>
+          以 GitHub 帳戶繼續
+        </button>
+      </div>
     </div>
 
     <div id="appSection">
@@ -116,14 +130,10 @@
         <button class="btn-logout" onclick="handleLogout()">登出</button>
       </div>
 
+      <!-- 多方式互綁控制列 -->
       <div class="link-status-bar" id="linkStatusBar">
-        <span id="linkInfoText">載入綁定狀態...</span>
-        <button class="btn-link-action" id="btnLinkAction" onclick="handleAccountLinking()">操作</button>
-      </div>
-
-      <div id="verifyBanner" class="verify-banner" style="display: none;">
-        <span>⚠️ Email 尚未驗證，請至信箱確認驗證信。</span>
-        <button type="button" style="background:none; border:none; color:#b45309; text-decoration:underline; cursor:pointer;" onclick="resendVerificationEmail()">重寄驗證信</button>
+        <div id="linkInfoText">載入綁定狀態...</div>
+        <div class="link-buttons" id="linkButtonsContainer"></div>
       </div>
 
       <div class="summary-card">
@@ -157,7 +167,6 @@
   </div>
 
   <script>
-    // 已自動帶入你的 Firebase 金鑰
     const firebaseConfig = {
       apiKey: "AIzaSyCH0FXlkIWyzooaF-bc7cQ4GClNHZBUA7E",
       authDomain: "bookkeeping-app-9e1dc.firebaseapp.com",
@@ -175,8 +184,6 @@
     let currentUser = null;
     let records = [];
     let currentAuthMode = "login";
-    let isLinkedGoogle = false;
-    let isLinkedPassword = false;
 
     const defaultCategories = ["🍔 餐飲", "🚗 交通", "🎮 娛樂", "🛒 日常", "📦 其他", "➕ 自訂其他..."];
 
@@ -191,10 +198,8 @@
         document.getElementById("authSection").style.display = "none";
         document.getElementById("appSection").style.display = "block";
         document.getElementById("userName").innerText = user.displayName || user.email.split('@')[0];
-        document.getElementById("userEmail").innerText = user.email;
+        document.getElementById("userEmail").innerText = user.email || "(未提供公開 Email)";
         if (user.photoURL) document.getElementById("userAvatar").src = user.photoURL;
-
-        document.getElementById("verifyBanner").style.display = user.emailVerified ? "none" : "flex";
 
         updateLinkStatusBar();
         resetForm();
@@ -208,50 +213,67 @@
 
     function updateLinkStatusBar() {
       const providers = currentUser.providerData.map(p => p.providerId);
-      isLinkedGoogle = providers.includes("google.com");
-      isLinkedPassword = providers.includes("password");
+      const isGoogle = providers.includes("google.com");
+      const isGithub = providers.includes("github.com");
+      const isPassword = providers.includes("password");
 
       const infoText = document.getElementById("linkInfoText");
-      const actionBtn = document.getElementById("btnLinkAction");
+      const btnContainer = document.getElementById("linkButtonsContainer");
+      btnContainer.innerHTML = "";
 
-      if (isLinkedGoogle && isLinkedPassword) {
-        infoText.innerHTML = "✅ 已同時啟用 <b>Google</b> 與 <b>密碼</b> 登入！";
-        actionBtn.style.display = "none";
-      } else if (!isLinkedGoogle) {
-        infoText.innerText = "尚未綁定 Google 帳戶";
-        actionBtn.innerText = "🔗 綁定 Google 快速登入";
-        actionBtn.style.display = "block";
-      } else if (!isLinkedPassword) {
-        infoText.innerText = "尚未設定 Email 獨立密碼";
-        actionBtn.innerText = "🔑 設定登入密碼";
-        actionBtn.style.display = "block";
+      const activeList = [];
+      if (isGoogle) activeList.push("Google");
+      if (isGithub) activeList.push("GitHub");
+      if (isPassword) activeList.push("Email 密碼");
+
+      infoText.innerHTML = `已綁定：<b>${activeList.join("、")}</b>`;
+
+      if (!isGoogle) {
+        const btn = document.createElement("button");
+        btn.className = "btn-link-action";
+        btn.innerText = "🔗 綁定 Google";
+        btn.onclick = () => linkProvider(new firebase.auth.GoogleAuthProvider(), "Google");
+        btnContainer.appendChild(btn);
+      }
+      if (!isGithub) {
+        const btn = document.createElement("button");
+        btn.className = "btn-link-action";
+        btn.innerText = "🔗 綁定 GitHub";
+        btn.onclick = () => linkProvider(new firebase.auth.GithubAuthProvider(), "GitHub");
+        btnContainer.appendChild(btn);
+      }
+      if (!isPassword && currentUser.email) {
+        const btn = document.createElement("button");
+        btn.className = "btn-link-action";
+        btn.innerText = "🔑 設定密碼登入";
+        btn.onclick = linkPassword;
+        btnContainer.appendChild(btn);
       }
     }
 
-    async function handleAccountLinking() {
-      if (!isLinkedGoogle) {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        try {
-          await currentUser.linkWithPopup(provider);
-          alert("🎉 Google 帳號綁定成功！下次使用 Google 登入也能連至同一個帳號！");
-          updateLinkStatusBar();
-        } catch (err) {
-          alert("綁定失敗: " + err.message);
-        }
-      } else if (!isLinkedPassword) {
-        const newPassword = prompt("請為此帳號設定一組登入密碼（至少 6 碼）：");
-        if (!newPassword || newPassword.length < 6) {
-          alert("密碼長度至少需 6 個字元！");
-          return;
-        }
-        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, newPassword);
-        try {
-          await currentUser.linkWithCredential(credential);
-          alert("🎉 密碼設定成功！下次可以直接使用信箱與密碼登入！");
-          updateLinkStatusBar();
-        } catch (err) {
-          alert("設定失敗: " + err.message);
-        }
+    async function linkProvider(provider, providerName) {
+      try {
+        await currentUser.linkWithPopup(provider);
+        alert(`🎉 成功綁定 ${providerName}！下次可直接使用該方式登入。`);
+        updateLinkStatusBar();
+      } catch (err) {
+        alert("綁定失敗: " + err.message);
+      }
+    }
+
+    async function linkPassword() {
+      const newPassword = prompt("請為此帳號設定登入密碼（至少 6 碼）：");
+      if (!newPassword || newPassword.length < 6) {
+        alert("密碼長度需至少 6 個字元！");
+        return;
+      }
+      const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, newPassword);
+      try {
+        await currentUser.linkWithCredential(credential);
+        alert("🎉 密碼設定成功！下次可以使用 Email + 密碼登入！");
+        updateLinkStatusBar();
+      } catch (err) {
+        alert("設定失敗: " + err.message);
       }
     }
 
@@ -259,7 +281,7 @@
       currentAuthMode = mode;
       document.getElementById("tabLogin").classList.toggle("active", mode === "login");
       document.getElementById("tabRegister").classList.toggle("active", mode === "register");
-      document.getElementById("btnAuthSubmit").innerText = mode === "login" ? "立即登入" : "註冊並發送驗證信";
+      document.getElementById("btnAuthSubmit").innerText = mode === "login" ? "立即登入" : "註冊並啟用";
     }
 
     async function handleEmailAuth(e) {
@@ -269,30 +291,29 @@
 
       try {
         if (currentAuthMode === "register") {
-          const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-          await userCredential.user.sendEmailVerification();
-          alert("註冊成功！驗證郵件已寄送，請至信箱點擊連結啟用帳號。");
+          await auth.createUserWithEmailAndPassword(email, password);
+          alert("註冊成功並已登入！");
         } else {
           await auth.signInWithEmailAndPassword(email, password);
         }
       } catch (err) {
-        alert("操作失敗: " + err.message);
+        alert("登入/註冊失敗: " + err.message);
       }
     }
 
     async function handleGoogleLogin() {
-      const provider = new firebase.auth.GoogleAuthProvider();
       try {
-        await auth.signInWithPopup(provider);
+        await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
       } catch (err) {
         alert("Google 登入失敗: " + err.message);
       }
     }
 
-    async function resendVerificationEmail() {
-      if (currentUser) {
-        await currentUser.sendEmailVerification();
-        alert("驗證信已重新發送！");
+    async function handleGitHubLogin() {
+      try {
+        await auth.signInWithPopup(new firebase.auth.GithubAuthProvider());
+      } catch (err) {
+        alert("GitHub 登入失敗: " + err.message);
       }
     }
 
@@ -306,7 +327,8 @@
       statusEl.style.color = "#4f46e5";
 
       try {
-        const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(currentUser.email)}`);
+        const emailIdentifier = currentUser.email || currentUser.uid;
+        const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(emailIdentifier)}`);
         const result = await res.json();
         if (result.status === "success") {
           records = result.records || [];
@@ -382,11 +404,12 @@
       statusEl.style.color = "#4f46e5";
 
       try {
+        const emailIdentifier = currentUser.email || currentUser.uid;
         await fetch(GAS_API_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "sync", email: currentUser.email, records: [newRecord] })
+          body: JSON.stringify({ action: "sync", email: emailIdentifier, records: [newRecord] })
         });
         setTimeout(fetchRecordsFromSheets, 1200);
         resetForm();
@@ -402,11 +425,12 @@
       renderList();
 
       try {
+        const emailIdentifier = currentUser.email || currentUser.uid;
         await fetch(GAS_API_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "delete", email: currentUser.email, id: recordId })
+          body: JSON.stringify({ action: "delete", email: emailIdentifier, id: recordId })
         });
       } catch (err) {
         console.error(err);
