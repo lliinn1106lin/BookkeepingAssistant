@@ -29,9 +29,11 @@
     .user-info .name { font-weight: 600; font-size: 15px; }
     .user-info .email { font-size: 12px; color: var(--text-sub); }
     .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-sub); padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
-    .summary-card { background: #eef2ff; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px; }
+    .summary-card { background: #eef2ff; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 16px; }
     .summary-amount { font-size: 28px; font-weight: 700; color: var(--primary); }
-    .sync-status { font-size: 12px; text-align: center; margin-bottom: 12px; color: var(--text-sub); }
+    .sync-bar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 16px; color: var(--text-sub); }
+    .btn-reload { background: #fff; border: 1px solid var(--border); color: var(--text-sub); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
+    .btn-reload:hover { border-color: var(--primary); color: var(--primary); }
     .form-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
     .input-row { display: flex; gap: 8px; align-items: center; }
     input, select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; background: #fff; }
@@ -40,6 +42,7 @@
     .btn-submit { background: var(--primary); color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
     .record-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fff; }
     .record-header { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; border-bottom: 1px dashed var(--border); padding-bottom: 6px; margin-bottom: 6px; }
+    .record-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; white-space: pre-line; }
     .record-footer { display: flex; justify-content: space-between; font-weight: 700; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
   </style>
 </head>
@@ -75,7 +78,10 @@
         <div class="summary-amount">$ <span id="totalAmount">0</span></div>
       </div>
 
-      <div id="syncStatus" class="sync-status">雲端同步狀態：閒置</div>
+      <div class="sync-bar">
+        <span id="syncStatus">雲端狀態：就緒</span>
+        <button class="btn-reload" onclick="fetchRecordsFromSheets()">🔄 從試算表重新整理</button>
+      </div>
 
       <form class="form-group" onsubmit="saveTransaction(event)">
         <div class="input-row">
@@ -94,7 +100,6 @@
   </div>
 
   <script>
-    // 這裡已經直接幫你填上剛才的 Apps Script 網址！
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzYo7S7rkkLdEPZx9DxRi3TARmibSIjOvb5Rx1dIVWKIR8J0GfRDbRLvXQ1hRkVMq1q/exec";
 
     let currentUser = null;
@@ -130,10 +135,34 @@
       document.getElementById("userEmail").innerText = currentUser.email;
       document.getElementById("userAvatar").src = currentUser.picture;
 
-      const userKey = `records_${currentUser.email}`;
-      records = JSON.parse(localStorage.getItem(userKey) || "[]");
       resetForm();
-      renderList();
+      // 登入後直接從 Google 試算表拉取最新歷史紀錄
+      fetchRecordsFromSheets();
+    }
+
+    // 從 Google 試算表撈取資料
+    async function fetchRecordsFromSheets() {
+      const statusEl = document.getElementById("syncStatus");
+      statusEl.innerText = "⏳ 正在從試算表讀取資料...";
+      statusEl.style.color = "#4f46e5";
+
+      try {
+        const res = await fetch(`${GAS_API_URL}?email=${encodeURIComponent(currentUser.email)}`);
+        const result = await res.json();
+
+        if (result.status === "success") {
+          records = result.records || [];
+          renderList();
+          statusEl.innerText = "✅ 已與試算表同步";
+          statusEl.style.color = "#16a34a";
+        } else {
+          statusEl.innerText = "❌ 讀取失敗: " + result.message;
+          statusEl.style.color = "#dc2626";
+        }
+      } catch (err) {
+        statusEl.innerText = "⚠️ 載入試算表失敗，請檢查網路或部署設定";
+        statusEl.style.color = "#dc2626";
+      }
     }
 
     function resetForm() {
@@ -190,18 +219,11 @@
         total += amount;
       });
 
-      const newRecord = { id: Date.now(), dateTime, title, items, total };
-      records.unshift(newRecord);
-      localStorage.setItem(`records_${currentUser.email}`, JSON.stringify(records));
-      renderList();
-      resetForm();
+      const itemsSummary = items.map(i => `${i.name} (${i.category}): $${i.amount}`).join('; ');
+      const newRecord = { id: Date.now(), dateTime, title, items, itemsSummary, total };
 
-      syncToGoogleSheets([newRecord]);
-    }
-
-    async function syncToGoogleSheets(newRecords) {
       const statusEl = document.getElementById("syncStatus");
-      statusEl.innerText = "⏳ 正在同步至 Google 試算表...";
+      statusEl.innerText = "⏳ 正在同步寫入試算表...";
       statusEl.style.color = "#4f46e5";
 
       try {
@@ -212,13 +234,15 @@
           body: JSON.stringify({
             action: "sync",
             email: currentUser.email,
-            records: newRecords
+            records: [newRecord]
           })
         });
-        statusEl.innerText = "✅ 試算表同步完成！";
-        statusEl.style.color = "#16a34a";
+
+        // 寫入完成後，稍等 1 秒從試算表重新抓取最新資料
+        setTimeout(fetchRecordsFromSheets, 1000);
+        resetForm();
       } catch (err) {
-        statusEl.innerText = "❌ 同步失敗，資料已暫存於本機";
+        statusEl.innerText = "❌ 寫入失敗";
         statusEl.style.color = "#dc2626";
       }
     }
@@ -226,18 +250,22 @@
     function renderList() {
       const listEl = document.getElementById("expenseList");
       let total = 0;
-      listEl.innerHTML = records.length ? "" : `<div style="text-align:center; color:#64748b; font-size:13px; padding:20px;">無交易紀錄</div>`;
+      listEl.innerHTML = records.length ? "" : `<div style="text-align:center; color:#64748b; font-size:13px; padding:20px;">試算表中尚無交易紀錄</div>`;
 
       records.forEach(r => {
-        total += r.total;
+        total += Number(r.total) || 0;
         const div = document.createElement("div");
         div.className = "record-card";
+        
+        // 解析明細文字呈現
+        const summaryText = (r.itemsSummary || "").split('; ').join('\n');
+
         div.innerHTML = `
           <div class="record-header">
             <span>${r.title}</span>
-            <span style="font-size:12px; color:#64748b;">${r.dateTime.replace('T', ' ')}</span>
+            <span style="font-size:12px; color:#64748b;">${String(r.dateTime).replace('T', ' ')}</span>
           </div>
-          ${r.items.map(i => `<div style="display:flex; justify-content:space-between; font-size:13px; color:#64748b;"><span>${i.name} (${i.category})</span><span>$${i.amount}</span></div>`).join('')}
+          <div class="record-details">${summaryText}</div>
           <div class="record-footer"><span>總計</span><span>$${r.total}</span></div>
         `;
         listEl.appendChild(div);
