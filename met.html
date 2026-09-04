@@ -185,9 +185,9 @@
   </div>
 
   <script>
-    // 已更新為新 Firebase 專案配置
+    // 已更新為精確大小寫的 API Key 與 ru8auru5l 設定
     const firebaseConfig = {
-      apiKey: "AIzaSyBy5fDTIj5nfSU8x123W8Fu0bHu5DqFhWk",
+      apiKey: "AIzaSyBy5fDtIj5nFSU8x123W8Fu0bHu5DqFhWk",
       authDomain: "ru8auru5l.firebaseapp.com",
       projectId: "ru8auru5l",
       storageBucket: "ru8auru5l.firebasestorage.app",
@@ -198,13 +198,13 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
-    // 已更新為新 Google Apps Script 部署 API 網址
+    // 已綁定最新 Google Apps Script 部署網址
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwKlSDbZVGM7YP3cMmCKDxZ0JQ7jc1OKX5KXFW3Aqq-uNrQ0kRK92lueOzTviYs3KE2UQ/exec";
 
     let currentUser = null;
     let records = [];
     let currentAuthMode = "login";
-    let isSaving = false; // 防止重複送出的狀態鎖
+    let isSaving = false;
 
     const defaultCategories = ["🍔 餐飲", "🚗 交通", "🎮 娛樂", "🛒 日常", "📦 其他", "➕ 自訂其他..."];
 
@@ -241,7 +241,6 @@
           const hasPassword = user.providerData.some(p => p.providerId === "password");
           document.getElementById("btnChangePassword").style.display = hasPassword ? "inline-block" : "none";
 
-          // 驗證信橫幅控制
           if (user.email && !user.emailVerified) {
             document.getElementById("verifyBanner").style.display = "flex";
           } else {
@@ -333,7 +332,6 @@
       }
     }
 
-    // 重新寄送驗證信
     async function handleResendVerification() {
       try {
         await currentUser.sendEmailVerification();
@@ -343,7 +341,6 @@
       }
     }
 
-    // 忘記密碼
     async function handleForgotPassword() {
       const email = document.getElementById("authEmail").value.trim() || prompt("請輸入您的註冊電子信箱 (Email)：");
       if (!email) return;
@@ -428,7 +425,6 @@
       auth.signOut();
     }
 
-    // 核心資料讀取
     function fetchRecordsFromSheets() {
       const statusEl = document.getElementById("syncStatus");
       statusEl.innerText = "⏳ 正在從試算表讀取資料...";
@@ -499,7 +495,6 @@
       }
     }
 
-    // 防重複送出的記帳儲存
     async function saveTransaction(e) {
       e.preventDefault();
       if (isSaving) return;
@@ -529,7 +524,6 @@
       const itemsSummary = items.map(i => `${i.name} (${i.category}): $${i.amount}`).join('; ');
       const newRecord = { id: Date.now(), dateTime, title, items, itemsSummary, total };
 
-      // 鎖定按鈕，防止連續點擊
       isSaving = true;
       btnSave.disabled = true;
       btnSave.innerText = "⏳ 正在同步至試算表...";
