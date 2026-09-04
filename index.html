@@ -26,6 +26,8 @@
       --text-sub: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #16a34a;
     }
 
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -64,6 +66,9 @@
     .link-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
     .btn-link-action { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 11px; font-weight: 600; }
 
+    .verify-banner { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 12px; font-size: 12px; color: #92400e; display: none; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .btn-resend-verify { background: #fff; border: 1px solid #d97706; color: #b45309; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: 600; }
+
     .summary-card { background: #eef2ff; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 16px; }
     .summary-amount { font-size: 28px; font-weight: 700; color: var(--primary); }
     .sync-bar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 16px; color: var(--text-sub); }
@@ -75,7 +80,8 @@
     input, select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; background: #fff; }
     .sub-item-card { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
     .btn-add-item { background: #fff; border: 1px dashed var(--primary); color: var(--primary); padding: 8px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; }
-    .btn-submit { background: var(--primary); color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+    .btn-submit { background: var(--primary); color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; transition: opacity 0.2s; }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
     
     .record-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fff; }
     .record-header { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; border-bottom: 1px dashed var(--border); padding-bottom: 6px; margin-bottom: 6px; }
@@ -136,6 +142,13 @@
         </div>
       </div>
 
+      <!-- Email 未驗證提示橫幅 -->
+      <div class="verify-banner" id="verifyBanner">
+        <span>⚠️ 信箱尚未完成驗證</span>
+        <button class="btn-resend-verify" onclick="handleResendVerification()">重寄驗證信</button>
+      </div>
+
+      <!-- 綁定狀態 -->
       <div class="link-status-bar" id="linkStatusBar">
         <div id="linkInfoText">載入綁定狀態...</div>
         <div class="link-buttons" id="linkButtonsContainer"></div>
@@ -159,7 +172,7 @@
         <div style="font-size: 13px; font-weight: 600;">品項明細：</div>
         <div id="itemsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
         <button type="button" class="btn-add-item" onclick="addItemRow()">+ 新增明細品項</button>
-        <button type="submit" class="btn-submit">儲存並同步至試算表</button>
+        <button type="submit" class="btn-submit" id="btnSaveSubmit">儲存並同步至試算表</button>
       </form>
 
       <div class="search-box">
@@ -171,7 +184,6 @@
     </div>
   </div>
 
-  <!-- 正式 Javascript 區塊開始 -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCH0FXlkIWyzooaF-bc7cQ4GClNHZBUA7E",
@@ -190,6 +202,7 @@
     let currentUser = null;
     let records = [];
     let currentAuthMode = "login";
+    let isSaving = false; // 防止重複送出的狀態鎖
 
     const defaultCategories = ["🍔 餐飲", "🚗 交通", "🎮 娛樂", "🛒 日常", "📦 其他", "➕ 自訂其他..."];
 
@@ -217,6 +230,7 @@
           document.getElementById("userEmail").innerText = "點擊下方可升級為正式帳號";
           document.getElementById("userAvatar").src = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
           document.getElementById("btnChangePassword").style.display = "none";
+          document.getElementById("verifyBanner").style.display = "none";
         } else {
           document.getElementById("userName").innerText = user.displayName || user.email?.split('@')[0] || "使用者";
           document.getElementById("userEmail").innerText = user.email || "(未公開信箱)";
@@ -224,6 +238,13 @@
 
           const hasPassword = user.providerData.some(p => p.providerId === "password");
           document.getElementById("btnChangePassword").style.display = hasPassword ? "inline-block" : "none";
+
+          // 驗證信橫幅控制
+          if (user.email && !user.emailVerified) {
+            document.getElementById("verifyBanner").style.display = "flex";
+          } else {
+            document.getElementById("verifyBanner").style.display = "none";
+          }
         }
 
         updateLinkStatusBar();
@@ -247,7 +268,7 @@
       btnContainer.innerHTML = "";
 
       if (currentUser.isAnonymous) {
-        infoText.innerHTML = "⚠️ <b>目前為訪客試用狀態</b>（資料已存雲端，升級後可永久保存）：";
+        infoText.innerHTML = "⚠️ <b>目前為訪客試用狀態</b>（升級綁定後可永久保存）：";
       } else {
         const activeList = [];
         if (isGoogle) activeList.push("Google");
@@ -310,12 +331,23 @@
       }
     }
 
+    // 重新寄送驗證信（加強垃圾信提醒）
+    async function handleResendVerification() {
+      try {
+        await currentUser.sendEmailVerification();
+        alert("驗證信已寄出！\n\n📌 提醒：如果收件匣沒有收到，請務必查看「垃圾郵件」或「促銷內容」分類匣！");
+      } catch (err) {
+        alert("發送失敗: " + err.message);
+      }
+    }
+
+    // 忘記密碼（加強垃圾信提醒）
     async function handleForgotPassword() {
       const email = document.getElementById("authEmail").value.trim() || prompt("請輸入您的註冊電子信箱 (Email)：");
       if (!email) return;
       try {
         await auth.sendPasswordResetEmail(email.trim());
-        alert(`重設密碼信件已發送至 ${email}，請至收件匣確認！`);
+        alert(`重設密碼信件已成功發送至 ${email}！\n\n📌 提醒：如果收件匣沒有收到，請務必查看「垃圾郵件」或「促銷內容」分類匣！`);
       } catch (err) {
         alert("發送失敗: " + err.message);
       }
@@ -355,13 +387,14 @@
 
       try {
         if (currentAuthMode === "register") {
-          await auth.createUserWithEmailAndPassword(email, password);
-          alert("註冊成功並已登入！");
+          const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+          await userCredential.user.sendEmailVerification();
+          alert("🎉 註冊成功！驗證信已寄出。\n\n📌 提醒：如果收件匣沒有收到，請務必查看「垃圾郵件」或「促銷內容」分類匣！");
         } else {
           await auth.signInWithEmailAndPassword(email, password);
         }
       } catch (err) {
-        alert("操作失敗: " + err.message);
+        alert("登入/註冊失敗: " + err.message);
       }
     }
 
@@ -393,7 +426,7 @@
       auth.signOut();
     }
 
-    // 核心資料讀取：JSONP 模式
+    // 核心資料讀取
     function fetchRecordsFromSheets() {
       const statusEl = document.getElementById("syncStatus");
       statusEl.innerText = "⏳ 正在從試算表讀取資料...";
@@ -464,8 +497,12 @@
       }
     }
 
+    // 防重複送出的記帳儲存
     async function saveTransaction(e) {
       e.preventDefault();
+      if (isSaving) return; // 若正在儲存中，直接攔截
+
+      const btnSave = document.getElementById("btnSaveSubmit");
       const dateTime = document.getElementById("txDateTime").value;
       const title = document.getElementById("txTitle").value.trim();
 
@@ -484,6 +521,11 @@
       const itemsSummary = items.map(i => `${i.name} (${i.category}): $${i.amount}`).join('; ');
       const newRecord = { id: Date.now(), dateTime, title, items, itemsSummary, total };
 
+      // 鎖定按鈕，防止連續點擊
+      isSaving = true;
+      btnSave.disabled = true;
+      btnSave.innerText = "⏳ 正在同步至試算表...";
+
       const statusEl = document.getElementById("syncStatus");
       statusEl.innerText = "⏳ 正在同步寫入試算表...";
       statusEl.style.color = "#4f46e5";
@@ -496,11 +538,20 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "sync", email: identifier, records: [newRecord] })
         });
-        setTimeout(fetchRecordsFromSheets, 1200);
         resetForm();
+        setTimeout(() => {
+          fetchRecordsFromSheets();
+          // 解鎖按鈕
+          isSaving = false;
+          btnSave.disabled = false;
+          btnSave.innerText = "儲存並同步至試算表";
+        }, 1500);
       } catch (err) {
         statusEl.innerText = "❌ 寫入失敗";
         statusEl.style.color = "#dc2626";
+        isSaving = false;
+        btnSave.disabled = false;
+        btnSave.innerText = "儲存並同步至試算表";
       }
     }
 
